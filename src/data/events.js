@@ -182,8 +182,8 @@ export const EVENTS = [
     id: 'e18',
     title: 'LENA & MIU "Always Close, Than Closer" Photobook Fansign',
     date: '2026-05-08',
-    location: 'Gaysorn Tower (15:00 น. / Lockeroom 18:00 น.)',
-    desc: 'งานโฟโต้บุ๊คแฟนไซน์สุดอบอุ่น สามารถร่วมให้กำลังใจบริเวณรอบงานได้',
+    location: 'Gaysorn Tower',
+    desc: 'งานโฟโต้บุ๊คแฟนไซน์สุดอบอุ่น (15:00 น. / Lockeroom 18:00 น.) ร่วมให้กำลังใจบริเวณรอบงานได้',
     type: 'fanmeeting',
     emoji: '📖',
     g: ['#FF87A8', '#B7E4EA']
@@ -249,7 +249,223 @@ export const EVENTS = [
     type: 'filming',
     emoji: '🎬',
     g: ['#3A3D40', '#6F7275']
-  }
-]
+  },
 
-export const EVENTS_BY_ID = Object.fromEntries(EVENTS.map((e) => [e.id, e]))
+  // --- กรกฎาคม 2026 ---
+  {
+    id: 'e25',
+    title: 'Tory Burch ICONSIAM BOUTIQUE GRAND OPENING (LENA)',
+    date: '2026-07-03',
+    location: '1st Floor, ICONSIAM',
+    desc: 'งานเปิดตัวบูติก Tory Burch เวลา 14:15 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'fashion',
+    emoji: '👜',
+    g: ['#D4AF37', '#FFE1A8']
+  },
+  {
+    id: 'e26',
+    title: 'Bobbi Brown Vitamin Enriched Face Base (MIU)',
+    date: '2026-07-09',
+    location: 'Hall of Fame, M Floor, Siam Paragon',
+    desc: 'ร่วมงานอีเวนต์ Bobbi Brown เวลา 18:30 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'brand',
+    emoji: '💄',
+    g: ['#FF87A8', '#F3E5AB']
+  },
+  {
+    id: 'e27',
+    title: '"WEAR YOUR SAFE ZONE" ชุมชนความรัก...คือพื้นที่ปลอดภัย ที่พกพาไปได้ทุกที่',
+    date: '2026-07-15',
+    location: 'TBC',
+    desc: 'กิจกรรมพิเศษ Wear Your Safe Zone เวลา 16:00 น. (งานปิด)',
+    type: 'event',
+    emoji: '🫂',
+    g: ['#5FB6C7', '#FF87A8']
+  },
+  {
+    id: 'e28',
+    title: 'Our Journey to Aura (LENAMIU)',
+    date: '2026-07-18',
+    location: 'Parade Square, G Floor, One Bangkok',
+    desc: 'ร่วมงาน Our Journey to Aura เวลา 15:00 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'brand',
+    emoji: '✨',
+    g: ['#8A7BFF', '#FFC1D6']
+  },
+  {
+    id: 'e29',
+    title: 'แถลงข่าว ภาพยนตร์ Her In Frame เธอในภาพนั้น (LENA)',
+    date: '2026-07-23',
+    location: 'TBC',
+    desc: 'งานแถลงข่าวเปิดตัวภาพยนตร์ "Her In Frame เธอในภาพนั้น" (งานปิด)',
+    type: 'event',
+    emoji: '🎞️',
+    g: ['#3A3D40', '#8A7BFF']
+  },
+  {
+    id: 'e30',
+    title: 'Filming for Pls Love รักได้ไหม (กรกฎาคม)',
+    date: '2026-07-31',
+    location: 'Shooting Location',
+    desc: 'คิวถ่ายทำซีรีส์ "Pls Love รักได้ไหม" (สงวนคิวงานสำหรับการถ่ายทำตลอดทั้งเดือนกรกฎาคม - งานปิด)',
+    type: 'filming',
+    emoji: '🎬',
+    g: ['#3A3D40', '#6F7275']
+  },
+
+  // --- สิงหาคม 2026 ---
+  {
+    id: 'e31',
+    title: 'Girls Cup Presented by มาม่า (LENAMIU)',
+    date: '2026-08-01',
+    location: 'BITEC Live',
+    desc: 'กิจกรรม Girls Cup Presented by มาม่า เวลา 14:00 น. (งานปิด)',
+    type: 'event',
+    emoji: '🏆',
+    g: ['#F0C36D', '#FF87A8']
+  },
+  {
+    id: 'e32',
+    title: 'Vaseline Pro Derma Glycoxome Pop-Up Lab (MIU)',
+    date: '2026-08-07',
+    location: 'Sphere Gallery 1, M Floor, Emsphere',
+    desc: 'ร่วมงาน Pop-Up Lab กับ Vaseline เวลา 19:00 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'brand',
+    emoji: '🧪',
+    g: ['#5FB6C7', '#FFE1A8']
+  },
+  {
+    id: 'e33',
+    title: 'Weibo Gala 2026 (Weibo Cultural Communication Night)',
+    date: '2026-08-08',
+    location: 'TBC',
+    desc: 'ร่วมงานประกาศรางวัล Weibo Gala 2026 (งานปิด)',
+    type: 'festival',
+    emoji: '🌟',
+    g: ['#FF87A8', '#8A7BFF']
+  },
+  {
+    id: 'e34',
+    title: 'LEGACY (LENAMIU)',
+    date: '2026-08-13',
+    location: 'Charoen Nakhon Hall & Thara Hall, M Level, ICONSIAM',
+    desc: 'งานอีเวนต์ใหญ่ LEGACY เวลา 17:00 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'brand',
+    emoji: '👑',
+    g: ['#D4AF37', '#FF87A8']
+  },
+  {
+    id: 'e35',
+    title: 'รอบปฐมทัศน์ ภาพยนตร์ Her In Frame เธอในภาพนั้น (LENA)',
+    date: '2026-08-20',
+    location: '5th Floor, Paragon Cineplex, Siam Paragon',
+    desc: 'รอบปฐมทัศน์ภาพยนตร์ "Her In Frame" เวลา 15:30 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'event',
+    emoji: '🍿',
+    g: ['#8A7BFF', '#FFC1D6']
+  },
+  {
+    id: 'e36',
+    title: 'LENAMIU 1st Fan Meeting in Singapore',
+    date: '2026-08-22',
+    location: 'Singapore',
+    desc: 'งานแฟนมีตติ้งครั้งแรกของลีน่าหมิว ณ ประเทศสิงคโปร์ (งานปิด/กิจกรรมเฉพาะผู้มีสิทธิ์)',
+    type: 'fanmeeting',
+    emoji: '🇸🇬',
+    g: ['#FF87A8', '#FFE1A8']
+  },
+  {
+    id: 'e37',
+    title: 'Aura No.10 งานครบรอบ 10 ปี Aura Bangkok Clinic',
+    date: '2026-08-28',
+    location: 'Central Post Office Bang Rak (อาคารไปรษณีย์กลาง บางรัก)',
+    desc: 'ฉลองครบรอบ 10 ปี Aura Bangkok Clinic (งานปิด)',
+    type: 'brand',
+    emoji: '💖',
+    g: ['#5FB6C7', '#FF87A8']
+  },
+  {
+    id: 'e38',
+    title: 'Filming for Pls Love รักได้ไหม (สิงหาคม)',
+    date: '2026-08-31',
+    location: 'Shooting Location',
+    desc: 'คิวถ่ายทำซีรีส์ "Pls Love รักได้ไหม" (สงวนคิวงานสำหรับการถ่ายทำตลอดทั้งเดือนสิงหาคม - งานปิด)',
+    type: 'filming',
+    emoji: '🎬',
+    g: ['#3A3D40', '#6F7275']
+  },
+
+  // --- กันยายน 2026 ---
+  {
+    id: 'e39',
+    title: 'SALISA x Miu Natacha Collection Launch (MIU)',
+    date: '2026-09-02',
+    location: 'TBC',
+    desc: 'งานเปิดตัวคอลเลกชันพิเศษ SALISA x Miu Natacha (งานปิด)',
+    type: 'fashion',
+    emoji: '👗',
+    g: ['#8A7BFF', '#C6BBFF']
+  },
+  {
+    id: 'e40',
+    title: 'Y Entertain Awards 2026 (LENAMIU)',
+    date: '2026-09-03',
+    location: 'TRUE ICON HALL, 7th Floor, ICONSIAM',
+    desc: 'งานประกาศรางวัล Y Entertain Awards 2026 เวลา 16:00 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'festival',
+    emoji: '🏆',
+    g: ['#F0C36D', '#FF87A8']
+  },
+  {
+    id: 'e41',
+    title: 'บวงสรวงซีรีส์ Pls Love รักได้ไหม (LENAMIU)',
+    date: '2026-09-09',
+    location: 'ช่อง 3 หนองแขม',
+    desc: 'พิธีบวงสรวงซีรีส์ "Pls Love รักได้ไหม" เวลา 10:39 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'event',
+    emoji: '🌸',
+    g: ['#FF87A8', '#FFE1A8']
+  },
+  {
+    id: 'e42',
+    title: 'Pls Love รักได้ไหม First Premiere with LenaMiu',
+    date: '2026-09-11',
+    location: 'Major Cineplex Ratchayothin',
+    desc: 'งานรับชมซีรีส์รอบพิเศษ First Premiere เวลา 18:30 น. (งานปิด)',
+    type: 'event',
+    emoji: '📽️',
+    g: ['#5FB6C7', '#8A7BFF']
+  },
+  {
+    id: 'e43',
+    title: 'M Choice Awards 2026 (LENA)',
+    date: '2026-09-12',
+    location: 'ICON SIAM HALL',
+    desc: 'งานประกาศรางวัล M Choice Awards 2026 เวลา 16:00 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'festival',
+    emoji: '🎖️',
+    g: ['#D4AF37', '#FFE1A8']
+  },
+  {
+    id: 'e44',
+    title: 'Head & Shoulders Plus - Feel the Breathable Scalp',
+    date: '2026-09-14',
+    location: 'Eden 1, 1st Floor, CentralWorld',
+    desc: 'กิจกรรมเปิดตัว Head & Shoulders Plus เวลา 15:30 น. ร่วมให้กำลังใจรอบงานได้ (ไม่มีรวมพลหลังเลิกงาน / ไม่เปิดรับของขวัญ)',
+    type: 'brand',
+    emoji: '💆‍♀️',
+    g: ['#5FB6C7', '#B7E4EA']
+  },
+  {
+    id: 'e45',
+    title: 'โปรโมท ซีรีส์ Pls Love รักได้ไหม (LENAMIU)',
+    date: '2026-09-25',
+    location: 'TBC',
+    desc: 'เดินสายโปรโมทซีรีส์ "Pls Love รักได้ไหม" (งานปิด)',
+    type: 'event',
+    emoji: '📺',
+    g: ['#FF87A8', '#8A7BFF']
+  }
+];
+
+export const EVENTS_BY_ID = Object.fromEntries(EVENTS.map((e) => [e.id, e]));
