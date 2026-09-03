@@ -4,22 +4,56 @@ import { EVENTS } from '../data/events'
 import { useFanJourney } from '../composables/useFanJourney'
 
 // ----------------------------------------------------
-// Fan Journey Integration
+// Fan Journey Composable Handlers (Universal Safe Check)
 // ----------------------------------------------------
 const journey = useFanJourney()
-const attendances = computed(() => journey?.attendances?.value || journey?.attendances || {})
 
 const editingMemory = ref({})
 const memoryDrafts = ref({})
+const imageErrors = ref({})
 
-const isAttended = (id) => !!attendances.value[id]
-const getMemory = (id) => attendances.value[id]?.memory || ''
+// ตรวจจับว่าเคย Check-in หรือยัง รองรับทั้ง Array / Object / Set
+function isAttended(id) {
+  if (!journey) return false
+  if (journey.isAttended && typeof journey.isAttended === 'function') {
+    return journey.isAttended(id)
+  }
+  const att = journey.attendances?.value || journey.attendances || journey.checkIns?.value || journey.checkIns
+  if (!att) return false
+  if (Array.isArray(att)) {
+    return att.includes(id) || att.some((item) => item === id || item?.id === id)
+  }
+  return !!att[id]
+}
 
+// ดึงข้อความ Memory
+function getMemory(id) {
+  if (!journey) return ''
+  if (journey.getMemory && typeof journey.getMemory === 'function') {
+    return journey.getMemory(id) || ''
+  }
+  const att = journey.attendances?.value || journey.attendances
+  if (att && att[id]) {
+    return typeof att[id] === 'string' ? att[id] : (att[id].memory || att[id].note || '')
+  }
+  const memories = journey.memories?.value || journey.memories
+  if (memories && memories[id]) return memories[id]
+  return ''
+}
+
+// กด Check-in / Toggle
 function handleCheckIn(id) {
-  if (isAttended(id)) {
-    if (journey?.removeCheckIn) journey.removeCheckIn(id)
+  if (!journey) return
+  if (journey.toggleAttendance) {
+    journey.toggleAttendance(id)
+  } else if (journey.toggleCheckIn) {
+    journey.toggleCheckIn(id)
+  } else if (isAttended(id)) {
+    if (journey.removeCheckIn) journey.removeCheckIn(id)
+    else if (journey.uncheck) journey.uncheck(id)
   } else {
-    if (journey?.checkIn) journey.checkIn(id)
+    if (journey.checkIn) journey.checkIn(id)
+    else if (journey.addCheckIn) journey.addCheckIn(id)
   }
 }
 
@@ -29,14 +63,31 @@ function startEditMemory(id) {
 }
 
 function saveMemory(id) {
-  if (journey?.setMemory) {
-    journey.setMemory(id, memoryDrafts.value[id] || '')
+  const text = memoryDrafts.value[id] || ''
+  if (journey.setMemory) {
+    journey.setMemory(id, text)
+  } else if (journey.saveMemory) {
+    journey.saveMemory(id, text)
+  } else if (journey.addMemory) {
+    journey.addMemory(id, text)
   }
   editingMemory.value[id] = false
 }
 
 function cancelEditMemory(id) {
   editingMemory.value[id] = false
+}
+
+// ----------------------------------------------------
+// Image Resolver
+// ----------------------------------------------------
+function getEventImage(item) {
+  if (imageErrors.value[item.id]) return null
+  return item.image || item.img || item.cover || item.poster || item.thumbnail || item.photo || null
+}
+
+function handleImageError(id) {
+  imageErrors.value[id] = true
 }
 
 // ----------------------------------------------------
@@ -68,8 +119,8 @@ function isOverseas(location) {
 }
 
 const filteredEvents = computed(() => {
-  if (!Array.isArray(EVENTS)) return []
-  return EVENTS.filter((item) => {
+  const list = Array.isArray(EVENTS) ? EVENTS : []
+  return list.filter((item) => {
     const q = searchQuery.value.trim().toLowerCase()
     const matchSearch =
       !q ||
@@ -187,7 +238,7 @@ const groupedByMonth = computed(() => {
       <p>ลองเปลี่ยนคำค้นหาหรือตัวกรองหมวดหมู่อีกครั้ง</p>
     </div>
 
-    <!-- List View -->
+    <!-- Events List View -->
     <div v-else-if="viewMode === 'list'" class="events-grid">
       <div
         v-for="item in filteredEvents"
@@ -195,35 +246,51 @@ const groupedByMonth = computed(() => {
         class="event-card"
         :class="{ attended: isAttended(item.id) }"
       >
-        <!-- Card Color Top Stripe -->
-        <div class="card-stripe" :style="{ background: item.color || '#ff87a8' }"></div>
+        <!-- Top Poster Image or Gradient Header -->
+        <div v-if="getEventImage(item)" class="event-image-container">
+          <img
+            :src="getEventImage(item)"
+            :alt="item.title"
+            class="event-image"
+            @error="handleImageError(item.id)"
+          />
+          <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+        </div>
+        <div
+          v-else
+          class="card-header-bar"
+          :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
+        ></div>
 
         <div class="event-body">
           <div class="event-header-row">
             <span class="event-date">📅 {{ item.date }}</span>
-            <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
+            <span v-if="!getEventImage(item) && item.type" class="event-type-badge">
+              {{ item.type }}
+            </span>
           </div>
 
           <h3 class="event-title">
             <span class="event-emoji">{{ item.emoji || '✨' }}</span>
             {{ item.title }}
           </h3>
+
           <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
           <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
-          <!-- Check-in Action -->
+          <!-- Check-in Button -->
           <div class="event-actions">
             <button
               class="checkin-btn"
               :class="{ active: isAttended(item.id) }"
               @click="handleCheckIn(item.id)"
             >
-              <span v-if="isAttended(item.id)">✅ เคยไปงานนี้แล้ว</span>
+              <span v-if="isAttended(item.id)">💖 เคยไปงานนี้แล้ว</span>
               <span v-else>📍 ฉันเคยไปงานนี้</span>
             </button>
           </div>
 
-          <!-- Memory Section -->
+          <!-- Memory Box -->
           <div v-if="isAttended(item.id)" class="memory-box">
             <div v-if="!editingMemory[item.id]" class="memory-display">
               <p v-if="getMemory(item.id)" class="memory-text">
@@ -236,7 +303,7 @@ const groupedByMonth = computed(() => {
             <div v-else class="memory-edit">
               <textarea
                 v-model="memoryDrafts[item.id]"
-                placeholder="เล่าความประทับใจในงานนี้..."
+                placeholder="พิมพ์ความทรงจำประทับใจในงานนี้..."
                 rows="2"
                 class="memory-input"
               ></textarea>
@@ -261,34 +328,48 @@ const groupedByMonth = computed(() => {
             class="event-card"
             :class="{ attended: isAttended(item.id) }"
           >
-            <div class="card-stripe" :style="{ background: item.color || '#ff87a8' }"></div>
+            <div v-if="getEventImage(item)" class="event-image-container">
+              <img
+                :src="getEventImage(item)"
+                :alt="item.title"
+                class="event-image"
+                @error="handleImageError(item.id)"
+              />
+              <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+            </div>
+            <div
+              v-else
+              class="card-header-bar"
+              :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
+            ></div>
 
             <div class="event-body">
               <div class="event-header-row">
                 <span class="event-date">📅 {{ item.date }}</span>
-                <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
+                <span v-if="!getEventImage(item) && item.type" class="event-type-badge">
+                  {{ item.type }}
+                </span>
               </div>
 
               <h3 class="event-title">
                 <span class="event-emoji">{{ item.emoji || '✨' }}</span>
                 {{ item.title }}
               </h3>
+
               <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
               <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
-              <!-- Check-in Action -->
               <div class="event-actions">
                 <button
                   class="checkin-btn"
                   :class="{ active: isAttended(item.id) }"
                   @click="handleCheckIn(item.id)"
                 >
-                  <span v-if="isAttended(item.id)">✅ เคยไปงานนี้แล้ว</span>
+                  <span v-if="isAttended(item.id)">💖 เคยไปงานนี้แล้ว</span>
                   <span v-else>📍 ฉันเคยไปงานนี้</span>
                 </button>
               </div>
 
-              <!-- Memory Section -->
               <div v-if="isAttended(item.id)" class="memory-box">
                 <div v-if="!editingMemory[item.id]" class="memory-display">
                   <p v-if="getMemory(item.id)" class="memory-text">
@@ -301,7 +382,7 @@ const groupedByMonth = computed(() => {
                 <div v-else class="memory-edit">
                   <textarea
                     v-model="memoryDrafts[item.id]"
-                    placeholder="เล่าความประทับใจในงานนี้..."
+                    placeholder="พิมพ์ความทรงจำประทับใจในงานนี้..."
                     rows="2"
                     class="memory-input"
                   ></textarea>
@@ -475,22 +556,42 @@ const groupedByMonth = computed(() => {
   display: flex;
   flex-direction: column;
   transition: all 0.25s ease;
-  position: relative;
-}
-
-.event-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .event-card.attended {
   border-color: #ff87a8;
-  background: #fffdfd;
+  background: #fffafa;
 }
 
-.card-stripe {
-  height: 6px;
+.card-header-bar {
+  height: 8px;
   width: 100%;
+}
+
+.event-image-container {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  background: #f1f5f9;
+}
+
+.event-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.floating-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  backdrop-filter: blur(4px);
 }
 
 .event-body {
@@ -533,10 +634,6 @@ const groupedByMonth = computed(() => {
   gap: 6px;
 }
 
-.event-emoji {
-  font-size: 1.1rem;
-}
-
 .event-location {
   font-size: 0.85rem;
   color: #64748b;
@@ -557,7 +654,7 @@ const groupedByMonth = computed(() => {
 
 .checkin-btn {
   width: 100%;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #ff87a8;
   background: rgba(255, 135, 168, 0.08);
