@@ -1,60 +1,53 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { EVENTS } from '../data/events'
-import { useFanJourney } from '../composables/useFanJourney'
 
 // ----------------------------------------------------
-// Fan Journey Composable Handlers (Universal Safe Check)
+// Fan Journey Sync (LocalStorage Real-time Sync)
 // ----------------------------------------------------
-const journey = useFanJourney()
+const STORAGE_KEY_ATTENDED = 'lenamiu_attended_events'
+const STORAGE_KEY_MEMORIES = 'lenamiu_event_memories'
+
+const attendedList = ref([])
+const memories = ref({})
 
 const editingMemory = ref({})
 const memoryDrafts = ref({})
-const imageErrors = ref({})
 
-// ตรวจจับว่าเคย Check-in หรือยัง รองรับทั้ง Array / Object / Set
+function loadStorage() {
+  try {
+    const savedAttended = localStorage.getItem(STORAGE_KEY_ATTENDED)
+    if (savedAttended) {
+      attendedList.value = JSON.parse(savedAttended)
+    }
+    const savedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES)
+    if (savedMemories) {
+      memories.value = JSON.parse(savedMemories)
+    }
+  } catch (e) {
+    console.error('Failed to load journey data', e)
+  }
+}
+
+onMounted(() => {
+  loadStorage()
+})
+
 function isAttended(id) {
-  if (!journey) return false
-  if (journey.isAttended && typeof journey.isAttended === 'function') {
-    return journey.isAttended(id)
-  }
-  const att = journey.attendances?.value || journey.attendances || journey.checkIns?.value || journey.checkIns
-  if (!att) return false
-  if (Array.isArray(att)) {
-    return att.includes(id) || att.some((item) => item === id || item?.id === id)
-  }
-  return !!att[id]
+  return attendedList.value.includes(id)
 }
 
-// ดึงข้อความ Memory
-function getMemory(id) {
-  if (!journey) return ''
-  if (journey.getMemory && typeof journey.getMemory === 'function') {
-    return journey.getMemory(id) || ''
-  }
-  const att = journey.attendances?.value || journey.attendances
-  if (att && att[id]) {
-    return typeof att[id] === 'string' ? att[id] : (att[id].memory || att[id].note || '')
-  }
-  const memories = journey.memories?.value || journey.memories
-  if (memories && memories[id]) return memories[id]
-  return ''
-}
-
-// กด Check-in / Toggle
 function handleCheckIn(id) {
-  if (!journey) return
-  if (journey.toggleAttendance) {
-    journey.toggleAttendance(id)
-  } else if (journey.toggleCheckIn) {
-    journey.toggleCheckIn(id)
-  } else if (isAttended(id)) {
-    if (journey.removeCheckIn) journey.removeCheckIn(id)
-    else if (journey.uncheck) journey.uncheck(id)
+  if (isAttended(id)) {
+    attendedList.value = attendedList.value.filter((itemId) => itemId !== id)
   } else {
-    if (journey.checkIn) journey.checkIn(id)
-    else if (journey.addCheckIn) journey.addCheckIn(id)
+    attendedList.value.push(id)
   }
+  localStorage.setItem(STORAGE_KEY_ATTENDED, JSON.stringify(attendedList.value))
+}
+
+function getMemory(id) {
+  return memories.value[id] || ''
 }
 
 function startEditMemory(id) {
@@ -63,31 +56,18 @@ function startEditMemory(id) {
 }
 
 function saveMemory(id) {
-  const text = memoryDrafts.value[id] || ''
-  if (journey.setMemory) {
-    journey.setMemory(id, text)
-  } else if (journey.saveMemory) {
-    journey.saveMemory(id, text)
-  } else if (journey.addMemory) {
-    journey.addMemory(id, text)
+  const text = (memoryDrafts.value[id] || '').trim()
+  if (text) {
+    memories.value[id] = text
+  } else {
+    delete memories.value[id]
   }
+  localStorage.setItem(STORAGE_KEY_MEMORIES, JSON.stringify(memories.value))
   editingMemory.value[id] = false
 }
 
 function cancelEditMemory(id) {
   editingMemory.value[id] = false
-}
-
-// ----------------------------------------------------
-// Image Resolver
-// ----------------------------------------------------
-function getEventImage(item) {
-  if (imageErrors.value[item.id]) return null
-  return item.image || item.img || item.cover || item.poster || item.thumbnail || item.photo || null
-}
-
-function handleImageError(id) {
-  imageErrors.value[id] = true
 }
 
 // ----------------------------------------------------
@@ -171,7 +151,7 @@ const groupedByMonth = computed(() => {
   <div class="events-page">
     <header class="events-header">
       <h1 class="title">ตารางงานและกิจกรรม 📅</h1>
-      <p class="subtitle">รวมตารางงาน อีเวนต์ และ Fan Meeting ของลีน่าหมิว</p>
+      <p class="subtitle">รวมตารางงาน อีเวนต์ และ Fan Meeting ทั้งหมดของลีน่าหมิว</p>
     </header>
 
     <!-- Controls -->
@@ -203,7 +183,9 @@ const groupedByMonth = computed(() => {
 
       <!-- Toolbar -->
       <div class="toolbar">
-        <span class="result-count">พบ {{ filteredEvents.length }} งาน</span>
+        <span class="result-count">
+          พบ {{ filteredEvents.length }} งาน • เคยไปแล้ว {{ attendedList.length }} งาน ✨
+        </span>
         <div class="toolbar-actions">
           <button
             class="action-btn"
@@ -246,55 +228,50 @@ const groupedByMonth = computed(() => {
         class="event-card"
         :class="{ attended: isAttended(item.id) }"
       >
-        <!-- Top Poster Image or Gradient Header -->
-        <div v-if="getEventImage(item)" class="event-image-container">
-          <img
-            :src="getEventImage(item)"
-            :alt="item.title"
-            class="event-image"
-            @error="handleImageError(item.id)"
-          />
+        <!-- Card Visual Header -->
+        <div
+          v-if="item.image || item.poster || item.cover"
+          class="event-img-header"
+        >
+          <img :src="item.image || item.poster || item.cover" :alt="item.title" />
           <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
         </div>
         <div
           v-else
-          class="card-header-bar"
+          class="event-color-header"
           :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
-        ></div>
+        >
+          <span class="header-icon">{{ item.emoji || '✨' }}</span>
+          <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+        </div>
 
         <div class="event-body">
           <div class="event-header-row">
             <span class="event-date">📅 {{ item.date }}</span>
-            <span v-if="!getEventImage(item) && item.type" class="event-type-badge">
-              {{ item.type }}
-            </span>
+            <span v-if="isAttended(item.id)" class="attended-tag">💖 เคยไปแล้ว</span>
           </div>
 
-          <h3 class="event-title">
-            <span class="event-emoji">{{ item.emoji || '✨' }}</span>
-            {{ item.title }}
-          </h3>
-
+          <h3 class="event-title">{{ item.title }}</h3>
           <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
           <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
-          <!-- Check-in Button -->
+          <!-- Check-in Action -->
           <div class="event-actions">
             <button
               class="checkin-btn"
               :class="{ active: isAttended(item.id) }"
               @click="handleCheckIn(item.id)"
             >
-              <span v-if="isAttended(item.id)">💖 เคยไปงานนี้แล้ว</span>
+              <span v-if="isAttended(item.id)">✅ ยกเลิกการเช็คอิน</span>
               <span v-else>📍 ฉันเคยไปงานนี้</span>
             </button>
           </div>
 
-          <!-- Memory Box -->
+          <!-- Memory Section -->
           <div v-if="isAttended(item.id)" class="memory-box">
             <div v-if="!editingMemory[item.id]" class="memory-display">
               <p v-if="getMemory(item.id)" class="memory-text">
-                💌 <strong>ความทรงจำ:</strong> {{ getMemory(item.id) }}
+                💌 <strong>บันทึก:</strong> {{ getMemory(item.id) }}
               </p>
               <button class="memory-btn" @click="startEditMemory(item.id)">
                 {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
@@ -303,7 +280,7 @@ const groupedByMonth = computed(() => {
             <div v-else class="memory-edit">
               <textarea
                 v-model="memoryDrafts[item.id]"
-                placeholder="พิมพ์ความทรงจำประทับใจในงานนี้..."
+                placeholder="เขียนความประทับใจในงานนี้..."
                 rows="2"
                 class="memory-input"
               ></textarea>
@@ -328,34 +305,29 @@ const groupedByMonth = computed(() => {
             class="event-card"
             :class="{ attended: isAttended(item.id) }"
           >
-            <div v-if="getEventImage(item)" class="event-image-container">
-              <img
-                :src="getEventImage(item)"
-                :alt="item.title"
-                class="event-image"
-                @error="handleImageError(item.id)"
-              />
+            <div
+              v-if="item.image || item.poster || item.cover"
+              class="event-img-header"
+            >
+              <img :src="item.image || item.poster || item.cover" :alt="item.title" />
               <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
             </div>
             <div
               v-else
-              class="card-header-bar"
+              class="event-color-header"
               :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
-            ></div>
+            >
+              <span class="header-icon">{{ item.emoji || '✨' }}</span>
+              <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+            </div>
 
             <div class="event-body">
               <div class="event-header-row">
                 <span class="event-date">📅 {{ item.date }}</span>
-                <span v-if="!getEventImage(item) && item.type" class="event-type-badge">
-                  {{ item.type }}
-                </span>
+                <span v-if="isAttended(item.id)" class="attended-tag">💖 เคยไปแล้ว</span>
               </div>
 
-              <h3 class="event-title">
-                <span class="event-emoji">{{ item.emoji || '✨' }}</span>
-                {{ item.title }}
-              </h3>
-
+              <h3 class="event-title">{{ item.title }}</h3>
               <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
               <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
@@ -365,7 +337,7 @@ const groupedByMonth = computed(() => {
                   :class="{ active: isAttended(item.id) }"
                   @click="handleCheckIn(item.id)"
                 >
-                  <span v-if="isAttended(item.id)">💖 เคยไปงานนี้แล้ว</span>
+                  <span v-if="isAttended(item.id)">✅ ยกเลิกการเช็คอิน</span>
                   <span v-else>📍 ฉันเคยไปงานนี้</span>
                 </button>
               </div>
@@ -373,7 +345,7 @@ const groupedByMonth = computed(() => {
               <div v-if="isAttended(item.id)" class="memory-box">
                 <div v-if="!editingMemory[item.id]" class="memory-display">
                   <p v-if="getMemory(item.id)" class="memory-text">
-                    💌 <strong>ความทรงจำ:</strong> {{ getMemory(item.id) }}
+                    💌 <strong>บันทึก:</strong> {{ getMemory(item.id) }}
                   </p>
                   <button class="memory-btn" @click="startEditMemory(item.id)">
                     {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
@@ -382,7 +354,7 @@ const groupedByMonth = computed(() => {
                 <div v-else class="memory-edit">
                   <textarea
                     v-model="memoryDrafts[item.id]"
-                    placeholder="พิมพ์ความทรงจำประทับใจในงานนี้..."
+                    placeholder="เขียนความประทับใจในงานนี้..."
                     rows="2"
                     class="memory-input"
                   ></textarea>
@@ -560,22 +532,28 @@ const groupedByMonth = computed(() => {
 
 .event-card.attended {
   border-color: #ff87a8;
-  background: #fffafa;
+  background: #fffdfd;
 }
 
-.card-header-bar {
-  height: 8px;
-  width: 100%;
-}
-
-.event-image-container {
+.event-color-header {
+  height: 90px;
   position: relative;
-  width: 100%;
-  height: 180px;
-  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.event-image {
+.header-icon {
+  font-size: 2.5rem;
+}
+
+.event-img-header {
+  position: relative;
+  height: 160px;
+  width: 100%;
+}
+
+.event-img-header img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -589,7 +567,7 @@ const groupedByMonth = computed(() => {
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.55);
   color: #ffffff;
   backdrop-filter: blur(4px);
 }
@@ -614,13 +592,13 @@ const groupedByMonth = computed(() => {
   color: #ff6584;
 }
 
-.event-type-badge {
+.attended-tag {
   font-size: 0.75rem;
+  font-weight: 600;
+  color: #ff477e;
+  background: #ffe6ee;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #f1f5f9;
-  color: #64748b;
-  text-transform: capitalize;
 }
 
 .event-title {
@@ -629,9 +607,6 @@ const groupedByMonth = computed(() => {
   color: #1e293b;
   margin: 2px 0 6px;
   line-height: 1.4;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
 }
 
 .event-location {
@@ -654,7 +629,7 @@ const groupedByMonth = computed(() => {
 
 .checkin-btn {
   width: 100%;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid #ff87a8;
   background: rgba(255, 135, 168, 0.08);
@@ -666,9 +641,9 @@ const groupedByMonth = computed(() => {
 }
 
 .checkin-btn.active {
-  background: linear-gradient(135deg, #ff87a8, #ff6584);
-  color: #ffffff;
-  border-color: transparent;
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
 }
 
 .memory-box {
