@@ -4,7 +4,7 @@
       <!-- Header -->
       <header class="page-header">
         <h1 class="page-title">LENAMIU 2026 SCHEDULE</h1>
-        <p class="page-subtitle">ตารางงานและกิจกรรมทั้งหมดของลีน่ามิว</p>
+        <p class="page-subtitle">ตารางงานและกิจกรรมทั้งหมดของเลน่ามิว</p>
         <div v-if="checkedInCount > 0" class="checkin-counter-badge">
           🎉 คุณไปร่วมงานมาแล้ว <span>{{ checkedInCount }}</span> งาน!
         </div>
@@ -54,7 +54,7 @@
       <div class="info-bar">
         <span class="events-total">พบ {{ filteredEvents.length }} กิจกรรม</span>
         <button class="sort-toggle" @click="toggleSort">
-          {{ sortOrder === 'asc' ? '⏳ วันที่: เก่า ➔ ใหม่' : '⌛ วันที่: ใหม่ ➔ เก่า' }}
+          {{ sortOrder === 'desc' ? '⌛ วันที่: ปัจจุบัน ➔ อดีต (ล่าสุดก่อน)' : '⏳ วันที่: อดีต ➔ ปัจจุบัน' }}
         </button>
       </div>
 
@@ -63,7 +63,7 @@
         <p>ไม่พบกิจกรรมที่คุณค้นหา</p>
       </div>
 
-      <!-- Event Cards Grid / List -->
+      <!-- Event Cards Wrapper -->
       <div v-else :class="['events-wrapper', viewMode]">
         <!-- List View -->
         <template v-if="viewMode === 'list'">
@@ -72,35 +72,30 @@
             :key="item.id"
             class="event-card"
             :class="{ 'has-checked': checkedInEvents.includes(item.id) }"
-            :style="{ '--accent-color': item.g ? item.g[0] : '#ff4b72' }"
+            :style="{
+              borderLeft: item.g ? `4px solid ${item.g[0]}` : '4px solid #ff4b72'
+            }"
           >
-            <!-- Poster Banner (ถ้ามีรูปจะโชว์รูป ถ้าไม่มีจะโชว์ Gradient Placeholder) -->
-            <div class="card-media">
+            <!-- แสดงรูปเฉพาะเมื่อมีฟิลด์ image -->
+            <div v-if="item.image" class="card-media">
               <img
-                v-if="item.image"
                 :src="item.image"
                 :alt="item.title"
                 class="poster-image"
                 loading="lazy"
               />
-              <div
-                v-else
-                class="poster-placeholder"
-                :style="{ background: getGradient(item.g) }"
-              >
-                <span class="placeholder-emoji">{{ item.emoji || '✨' }}</span>
-              </div>
             </div>
 
             <div class="card-details">
               <div class="title-row">
                 <span class="title-emoji">{{ item.emoji || '🎬' }}</span>
-                <h3 class="event-title">{{ item.title }}</h3>
-              </div>
-
-              <div class="meta-row">
-                <span class="event-date">🗓️ {{ item.date }}</span>
-                <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
+                <div class="title-meta-wrap">
+                  <h3 class="event-title">{{ item.title }}</h3>
+                  <div class="meta-row">
+                    <span class="event-date">🗓️ {{ item.date }}</span>
+                    <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
+                  </div>
+                </div>
               </div>
 
               <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
@@ -117,7 +112,7 @@
                   @click="toggleCheckIn(item.id)"
                 >
                   <span class="btn-icon">{{ checkedInEvents.includes(item.id) ? '✅' : '📍' }}</span>
-                  <span>{{ checkedInEvents.includes(item.id) ? 'I Was Here' : 'I Was Here' }}</span>
+                  <span>I Was Here</span>
                 </button>
               </div>
             </div>
@@ -142,34 +137,30 @@
                 :key="item.id"
                 class="event-card"
                 :class="{ 'has-checked': checkedInEvents.includes(item.id) }"
-                :style="{ '--accent-color': item.g ? item.g[0] : '#ff4b72' }"
+                :style="{
+                  borderLeft: item.g ? `4px solid ${item.g[0]}` : '4px solid #ff4b72'
+                }"
               >
-                <div class="card-media">
+                <!-- แสดงรูปเฉพาะเมื่อมีฟิลด์ image -->
+                <div v-if="item.image" class="card-media">
                   <img
-                    v-if="item.image"
                     :src="item.image"
                     :alt="item.title"
                     class="poster-image"
                     loading="lazy"
                   />
-                  <div
-                    v-else
-                    class="poster-placeholder"
-                    :style="{ background: getGradient(item.g) }"
-                  >
-                    <span class="placeholder-emoji">{{ item.emoji || '✨' }}</span>
-                  </div>
                 </div>
 
                 <div class="card-details">
                   <div class="title-row">
                     <span class="title-emoji">{{ item.emoji || '🎬' }}</span>
-                    <h3 class="event-title">{{ item.title }}</h3>
-                  </div>
-
-                  <div class="meta-row">
-                    <span class="event-date">🗓️ {{ item.date }}</span>
-                    <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
+                    <div class="title-meta-wrap">
+                      <h3 class="event-title">{{ item.title }}</h3>
+                      <div class="meta-row">
+                        <span class="event-date">🗓️ {{ item.date }}</span>
+                        <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
@@ -206,7 +197,8 @@ import { EVENTS } from '../data/events'
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const viewMode = ref('list')
-const sortOrder = ref('asc')
+// 🟢 ตั้งต้นให้เรียงจาก ปัจจุบัน/ล่าสุด -> อดีต
+const sortOrder = ref('desc')
 const checkedInEvents = ref([])
 
 onMounted(() => {
@@ -256,15 +248,11 @@ const isOpenEvent = (desc = '') => {
   return !desc.includes('งานปิด') && !desc.includes('Private')
 }
 
-const getGradient = (colors) => {
-  if (!colors || colors.length < 2) return 'linear-gradient(135deg, #2a2035, #191424)'
-  return `linear-gradient(135deg, ${colors[0]}44, ${colors[1]}22)`
-}
-
 const toggleSort = () => {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
 }
 
+// กรองและเรียงลำดับกิจกรรม
 const filteredEvents = computed(() => {
   return EVENTS.filter(item => {
     const q = searchQuery.value.trim().toLowerCase()
@@ -287,10 +275,11 @@ const filteredEvents = computed(() => {
   }).sort((a, b) => {
     const dateA = new Date(a.date).getTime()
     const dateB = new Date(b.date).getTime()
-    return sortOrder.value === 'asc' ? dateA - dateB : dateB - dateA
+    return sortOrder.value === 'desc' ? dateB - dateA : dateA - dateB
   })
 })
 
+// จัดกลุ่มตามเดือนและเรียงลำดับเดือน
 const eventsByMonth = computed(() => {
   const groups = {}
   filteredEvents.value.forEach(item => {
@@ -300,7 +289,18 @@ const eventsByMonth = computed(() => {
     if (!groups[key]) groups[key] = []
     groups[key].push(item)
   })
-  return groups
+
+  // เรียงลำดับคีย์ของเดือนตาม sortOrder
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    return sortOrder.value === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
+  })
+
+  const sortedGroups = {}
+  sortedKeys.forEach(key => {
+    sortedGroups[key] = groups[key]
+  })
+
+  return sortedGroups
 })
 
 const getMonthLabel = (monthKey) => {
@@ -326,7 +326,7 @@ const getMonthLabel = (monthKey) => {
 
 .page-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .page-title {
@@ -336,7 +336,6 @@ const getMonthLabel = (monthKey) => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 6px;
-  letter-spacing: 0.5px;
 }
 
 .page-subtitle {
@@ -472,27 +471,22 @@ const getMonthLabel = (monthKey) => {
 .sort-toggle {
   background: transparent;
   border: none;
-  color: #a49bbb;
+  color: #ff85a2;
   cursor: pointer;
   font-size: 0.85rem;
-}
-
-.sort-toggle:hover {
-  color: #fff;
+  font-weight: 600;
 }
 
 .events-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 /* Event Card */
 .event-card {
-  position: relative;
   background: #191428;
   border: 1px solid #2d2644;
-  border-left: 4px solid var(--accent-color, #ff4b72);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
@@ -506,13 +500,14 @@ const getMonthLabel = (monthKey) => {
 
 .event-card.has-checked {
   border-color: #2e7d32;
-  border-left-color: #4caf50;
+  border-left-color: #4caf50 !important;
 }
 
-/* Media Banner */
+/* Image Container: จัดสัดส่วนไม่ให้หัวขาด */
 .card-media {
   width: 100%;
-  background: #120e1f;
+  max-height: 320px;
+  background: #0d0a17;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -521,62 +516,53 @@ const getMonthLabel = (monthKey) => {
 
 .poster-image {
   width: 100%;
-  max-height: 280px;
-  object-fit: cover;
-  object-position: center top;
+  height: auto;
+  max-height: 320px;
+  object-fit: contain;
   display: block;
 }
 
-.poster-placeholder {
-  width: 100%;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.placeholder-emoji {
-  font-size: 1.3rem;
-  opacity: 0.7;
-}
-
-/* Details */
+/* Card Details */
 .card-details {
   padding: 16px 18px;
 }
 
 .title-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .title-emoji {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.title-meta-wrap {
+  flex: 1;
 }
 
 .event-title {
-  margin: 0;
+  margin: 0 0 6px 0;
   font-size: 1.15rem;
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 10px;
+  gap: 12px;
   font-size: 0.88rem;
   color: #a49bbb;
 }
 
 .event-desc {
-  margin: 0 0 16px 0;
+  margin: 8px 0 14px 0;
   font-size: 0.9rem;
-  color: #cfcbdd;
+  color: #d1cde0;
   line-height: 1.5;
 }
 
@@ -587,7 +573,7 @@ const getMonthLabel = (monthKey) => {
   flex-wrap: wrap;
   gap: 10px;
   padding-top: 12px;
-  border-top: 1px solid #261f3a;
+  border-top: 1px dashed #261f3a;
 }
 
 .badge-group {
@@ -619,17 +605,17 @@ const getMonthLabel = (monthKey) => {
   color: #4fc3f7;
 }
 
-/* Button I Was Here */
+/* I Was Here Button */
 .btn-i-was-here {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   background: #ffffff;
   border: 1px solid #ffffff;
-  color: #1a1429;
+  color: #191428;
   font-weight: 700;
   font-size: 0.85rem;
-  padding: 7px 16px;
+  padding: 6px 16px;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s;
@@ -646,7 +632,7 @@ const getMonthLabel = (monthKey) => {
   color: #ffffff;
 }
 
-/* Calendar View Grouping */
+/* Calendar Month Grouping */
 .calendar-month-block {
   margin-bottom: 28px;
 }
