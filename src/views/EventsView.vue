@@ -6,19 +6,20 @@ import { useFanJourney } from '../composables/useFanJourney'
 // ----------------------------------------------------
 // Fan Journey Integration
 // ----------------------------------------------------
-const { attendances, checkIn, removeCheckIn, setMemory } = useFanJourney()
+const journey = useFanJourney()
+const attendances = computed(() => journey?.attendances?.value || journey?.attendances || {})
 
 const editingMemory = ref({})
 const memoryDrafts = ref({})
 
-const isAttended = (id) => !!attendances.value?.[id]
-const getMemory = (id) => attendances.value?.[id]?.memory || ''
+const isAttended = (id) => !!attendances.value[id]
+const getMemory = (id) => attendances.value[id]?.memory || ''
 
 function handleCheckIn(id) {
   if (isAttended(id)) {
-    removeCheckIn(id)
+    if (journey?.removeCheckIn) journey.removeCheckIn(id)
   } else {
-    checkIn(id)
+    if (journey?.checkIn) journey.checkIn(id)
   }
 }
 
@@ -28,7 +29,9 @@ function startEditMemory(id) {
 }
 
 function saveMemory(id) {
-  setMemory(id, memoryDrafts.value[id] || '')
+  if (journey?.setMemory) {
+    journey.setMemory(id, memoryDrafts.value[id] || '')
+  }
   editingMemory.value[id] = false
 }
 
@@ -65,6 +68,7 @@ function isOverseas(location) {
 }
 
 const filteredEvents = computed(() => {
+  if (!Array.isArray(EVENTS)) return []
   return EVENTS.filter((item) => {
     const q = searchQuery.value.trim().toLowerCase()
     const matchSearch =
@@ -191,26 +195,19 @@ const groupedByMonth = computed(() => {
         class="event-card"
         :class="{ attended: isAttended(item.id) }"
       >
-        <!-- Event Image/Poster -->
-        <div v-if="item.image || item.poster || item.cover" class="event-image-wrap">
-          <img
-            :src="item.image || item.poster || item.cover"
-            :alt="item.title"
-            class="event-image"
-            loading="lazy"
-          />
-          <span v-if="item.type" class="event-type-badge-floating">{{ item.type }}</span>
-        </div>
+        <!-- Card Color Top Stripe -->
+        <div class="card-stripe" :style="{ background: item.color || '#ff87a8' }"></div>
 
         <div class="event-body">
           <div class="event-header-row">
             <span class="event-date">📅 {{ item.date }}</span>
-            <span v-if="!item.image && !item.poster && !item.cover && item.type" class="event-type-badge">
-              {{ item.type }}
-            </span>
+            <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
           </div>
 
-          <h3 class="event-title">{{ item.emoji || '✨' }} {{ item.title }}</h3>
+          <h3 class="event-title">
+            <span class="event-emoji">{{ item.emoji || '✨' }}</span>
+            {{ item.title }}
+          </h3>
           <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
           <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
@@ -253,7 +250,7 @@ const groupedByMonth = computed(() => {
       </div>
     </div>
 
-    <!-- Calendar View (Grouped by Month) -->
+    <!-- Calendar View -->
     <div v-else class="calendar-group-container">
       <div v-for="(group, key) in groupedByMonth" :key="key" class="month-section">
         <h2 class="month-title">{{ group.label }} ({{ group.events.length }} งาน)</h2>
@@ -264,26 +261,18 @@ const groupedByMonth = computed(() => {
             class="event-card"
             :class="{ attended: isAttended(item.id) }"
           >
-            <!-- Event Image/Poster -->
-            <div v-if="item.image || item.poster || item.cover" class="event-image-wrap">
-              <img
-                :src="item.image || item.poster || item.cover"
-                :alt="item.title"
-                class="event-image"
-                loading="lazy"
-              />
-              <span v-if="item.type" class="event-type-badge-floating">{{ item.type }}</span>
-            </div>
+            <div class="card-stripe" :style="{ background: item.color || '#ff87a8' }"></div>
 
             <div class="event-body">
               <div class="event-header-row">
                 <span class="event-date">📅 {{ item.date }}</span>
-                <span v-if="!item.image && !item.poster && !item.cover && item.type" class="event-type-badge">
-                  {{ item.type }}
-                </span>
+                <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
               </div>
 
-              <h3 class="event-title">{{ item.emoji || '✨' }} {{ item.title }}</h3>
+              <h3 class="event-title">
+                <span class="event-emoji">{{ item.emoji || '✨' }}</span>
+                {{ item.title }}
+              </h3>
               <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
               <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
@@ -486,6 +475,7 @@ const groupedByMonth = computed(() => {
   display: flex;
   flex-direction: column;
   transition: all 0.25s ease;
+  position: relative;
 }
 
 .event-card:hover {
@@ -498,37 +488,9 @@ const groupedByMonth = computed(() => {
   background: #fffdfd;
 }
 
-.event-image-wrap {
-  position: relative;
+.card-stripe {
+  height: 6px;
   width: 100%;
-  height: 180px;
-  background-color: #f1f5f9;
-  overflow: hidden;
-}
-
-.event-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.event-card:hover .event-image {
-  transform: scale(1.03);
-}
-
-.event-type-badge-floating {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #ffffff;
-  backdrop-filter: blur(4px);
-  text-transform: capitalize;
 }
 
 .event-body {
@@ -566,6 +528,13 @@ const groupedByMonth = computed(() => {
   color: #1e293b;
   margin: 2px 0 6px;
   line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.event-emoji {
+  font-size: 1.1rem;
 }
 
 .event-location {
