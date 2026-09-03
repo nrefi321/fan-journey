@@ -4,6 +4,9 @@
     <header class="schedule-header">
       <h1 class="title">LENAMIU 2026 SCHEDULE</h1>
       <p class="subtitle">ตารางงานและกิจกรรมทั้งหมดของเลน่ามิว</p>
+      <div v-if="checkedInCount > 0" class="attendance-summary">
+        ✨ คุณไปร่วมงานมาแล้ว <strong>{{ checkedInCount }}</strong> งาน!
+      </div>
     </header>
 
     <!-- Control Panel -->
@@ -27,7 +30,7 @@
           :class="['toggle-btn', { active: viewMode === 'calendar' }]"
           @click="viewMode = 'calendar'"
         >
-          📅 ปฏิทิน
+          📅 ปฏิทินรายเดือน
         </button>
       </div>
     </div>
@@ -48,7 +51,7 @@
     <div class="status-bar">
       <span class="event-count">พบ {{ filteredEvents.length }} กิจกรรม</span>
       <button class="sort-btn" @click="toggleSort">
-        เรียงตามวันที่: {{ sortOrder === 'asc' ? 'เก่าไปใหม่ ↑' : 'ใหม่ไปเก่า ↓' }}
+        {{ sortOrder === 'asc' ? '⏳ วันที่: เก่า ➔ ใหม่' : '⌛ วันที่: ใหม่ ➔ เก่า' }}
       </button>
     </div>
 
@@ -63,6 +66,7 @@
         v-for="item in filteredEvents"
         :key="item.id"
         class="event-card"
+        :class="{ 'is-checked-in': checkedInEvents.includes(item.id) }"
         :style="{
           borderLeft: item.g ? `5px solid ${item.g[0]}` : '5px solid #FF6B81',
           background: item.g
@@ -70,7 +74,7 @@
             : '#fff'
         }"
       >
-        <!-- 🟢 Event Poster Image -->
+        <!-- 🟢 โปสเตอร์รูปภาพ -->
         <div v-if="item.image" class="event-poster-wrapper">
           <img :src="item.image" :alt="item.title" class="event-poster-img" />
         </div>
@@ -89,9 +93,20 @@
             <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
           </div>
 
-          <div class="card-badges">
-            <span v-if="isOverseas(item.location)" class="badge overseas">✈️ ต่างประเทศ</span>
-            <span v-if="item.type" class="badge type">{{ item.type }}</span>
+          <div class="card-footer">
+            <div class="card-badges">
+              <span v-if="isOpenEvent(item.desc)" class="badge open">🟢 ไปร่วมเชียร์ได้</span>
+              <span v-else class="badge private">🔴 งานปิด</span>
+              <span v-if="isOverseas(item.location)" class="badge overseas">✈️ ต่างประเทศ</span>
+            </div>
+
+            <!-- 🟢 ปุ่ม I WAS HERE -->
+            <button
+              :class="['checkin-btn', { checked: checkedInEvents.includes(item.id) }]"
+              @click="toggleCheckIn(item.id)"
+            >
+              {{ checkedInEvents.includes(item.id) ? '✅ I Was Here!' : '📍 I Was Here' }}
+            </button>
           </div>
         </div>
       </div>
@@ -106,7 +121,7 @@
       >
         <div class="month-header">
           <h2>{{ getMonthLabel(monthKey) }}</h2>
-          <span class="month-count">{{ group.length }} กิจกรรม</span>
+          <span class="badge-count">{{ group.length }} กิจกรรม</span>
         </div>
 
         <div class="event-grid">
@@ -114,6 +129,7 @@
             v-for="item in group"
             :key="item.id"
             class="event-card"
+            :class="{ 'is-checked-in': checkedInEvents.includes(item.id) }"
             :style="{
               borderLeft: item.g ? `5px solid ${item.g[0]}` : '5px solid #FF6B81',
               background: item.g
@@ -121,7 +137,7 @@
                 : '#fff'
             }"
           >
-            <!-- 🟢 Event Poster Image -->
+            <!-- 🟢 โปสเตอร์รูปภาพ -->
             <div v-if="item.image" class="event-poster-wrapper">
               <img :src="item.image" :alt="item.title" class="event-poster-img" />
             </div>
@@ -140,9 +156,20 @@
                 <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
               </div>
 
-              <div class="card-badges">
-                <span v-if="isOverseas(item.location)" class="badge overseas">✈️ ต่างประเทศ</span>
-                <span v-if="item.type" class="badge type">{{ item.type }}</span>
+              <div class="card-footer">
+                <div class="card-badges">
+                  <span v-if="isOpenEvent(item.desc)" class="badge open">🟢 ไปร่วมเชียร์ได้</span>
+                  <span v-else class="badge private">🔴 งานปิด</span>
+                  <span v-if="isOverseas(item.location)" class="badge overseas">✈️ ต่างประเทศ</span>
+                </div>
+
+                <!-- 🟢 ปุ่ม I WAS HERE -->
+                <button
+                  :class="['checkin-btn', { checked: checkedInEvents.includes(item.id) }]"
+                  @click="toggleCheckIn(item.id)"
+                >
+                  {{ checkedInEvents.includes(item.id) ? '✅ I Was Here!' : '📍 I Was Here' }}
+                </button>
               </div>
             </div>
           </div>
@@ -153,22 +180,47 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { EVENTS } from '../data/events'
 
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const viewMode = ref('list')
 const sortOrder = ref('asc')
+const checkedInEvents = ref([])
+
+// โหลดข้อมูล Check-in จาก LocalStorage
+onMounted(() => {
+  const saved = localStorage.getItem('lenamiu_checked_in_events')
+  if (saved) {
+    try {
+      checkedInEvents.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse checked in events', e)
+    }
+  }
+})
+
+// สลับสถานะ Check-in
+const toggleCheckIn = (id) => {
+  if (checkedInEvents.value.includes(id)) {
+    checkedInEvents.value = checkedInEvents.value.filter(item => item !== id)
+  } else {
+    checkedInEvents.value.push(id)
+  }
+  localStorage.setItem('lenamiu_checked_in_events', JSON.stringify(checkedInEvents.value))
+}
+
+const checkedInCount = computed(() => checkedInEvents.value.length)
 
 const CATEGORIES = [
   { id: 'all', label: 'ทั้งหมด' },
   { id: 'meeting', label: 'Fan Meeting' },
-  { id: 'premiere', label: 'Premiere' },
   { id: 'fashion', label: 'Fashion' },
   { id: 'brand', label: 'Brand Event' },
   { id: 'live', label: 'Live' },
-  { id: 'overseas', label: 'ต่างประเทศ' }
+  { id: 'overseas', label: 'ต่างประเทศ' },
+  { id: 'open', label: 'ไปร่วมเชียร์ได้' }
 ]
 
 const MONTH_NAMES = [
@@ -180,6 +232,10 @@ const MONTH_NAMES = [
 const isOverseas = (location = '') => {
   const keywords = ['Paris', 'Taiwan', 'Macau', 'China', 'Philippines', 'ต่างประเทศ', 'Japan']
   return keywords.some(kw => location.toLowerCase().includes(kw.toLowerCase()))
+}
+
+const isOpenEvent = (desc = '') => {
+  return !desc.includes('งานปิด') && !desc.includes('Private')
 }
 
 const toggleSort = () => {
@@ -198,6 +254,8 @@ const filteredEvents = computed(() => {
     let matchesCategory = true
     if (selectedCategory.value === 'overseas') {
       matchesCategory = isOverseas(item.location)
+    } else if (selectedCategory.value === 'open') {
+      matchesCategory = isOpenEvent(item.desc)
     } else if (selectedCategory.value !== 'all') {
       matchesCategory = item.type === selectedCategory.value
     }
@@ -253,6 +311,17 @@ const getMonthLabel = (monthKey) => {
 .subtitle {
   color: #666;
   font-size: 1rem;
+}
+
+.attendance-summary {
+  margin-top: 10px;
+  display: inline-block;
+  padding: 6px 16px;
+  background: #fff0f5;
+  color: #d81b60;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .control-panel {
@@ -344,9 +413,12 @@ const getMonthLabel = (monthKey) => {
   color: #2c3e50;
 }
 
-.month-count {
+.badge-count {
   font-size: 0.85rem;
-  color: #888;
+  background: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: #666;
 }
 
 .event-grid {
@@ -361,7 +433,13 @@ const getMonthLabel = (monthKey) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   background: #fff;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.event-card.is-checked-in {
+  box-shadow: 0 0 0 2px #4caf50, 0 4px 12px rgba(76, 175, 80, 0.15);
 }
 
 .event-card:hover {
@@ -369,7 +447,7 @@ const getMonthLabel = (monthKey) => {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
-/* Poster Styling */
+/* Poster */
 .event-poster-wrapper {
   width: 100%;
   height: 180px;
@@ -386,6 +464,9 @@ const getMonthLabel = (monthKey) => {
 
 .card-content {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .card-header {
@@ -405,7 +486,7 @@ const getMonthLabel = (monthKey) => {
 
 .event-title {
   margin: 0 0 4px 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: #2c3e50;
 }
 
@@ -415,11 +496,12 @@ const getMonthLabel = (monthKey) => {
 }
 
 .card-body {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  flex: 1;
 }
 
 .event-location {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: #555;
   margin: 4px 0;
 }
@@ -429,6 +511,17 @@ const getMonthLabel = (monthKey) => {
   color: #666;
   line-height: 1.4;
   margin: 6px 0 0 0;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed #eee;
 }
 
 .card-badges {
@@ -445,15 +538,43 @@ const getMonthLabel = (monthKey) => {
   color: #555;
 }
 
+.badge.open {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge.private {
+  background: #ffebee;
+  color: #c62828;
+}
+
 .badge.overseas {
   background: #e1f5fe;
   color: #0288d1;
 }
 
-.badge.type {
-  background: #fff0f5;
-  color: #d81b60;
-  text-transform: capitalize;
+/* I Was Here Button */
+.checkin-btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkin-btn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+.checkin-btn.checked {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
 }
 
 .empty-state {
