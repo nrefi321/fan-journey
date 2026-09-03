@@ -1,53 +1,60 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { EVENTS } from '../data/events'
+import { useFanJourney } from '../composables/useFanJourney'
 
 // ----------------------------------------------------
-// Fan Journey Sync (LocalStorage Real-time Sync)
+// Fan Journey Composable Integration
 // ----------------------------------------------------
-const STORAGE_KEY_ATTENDED = 'lenamiu_attended_events'
-const STORAGE_KEY_MEMORIES = 'lenamiu_event_memories'
-
-const attendedList = ref([])
-const memories = ref({})
+const journey = useFanJourney()
 
 const editingMemory = ref({})
 const memoryDrafts = ref({})
 
-function loadStorage() {
-  try {
-    const savedAttended = localStorage.getItem(STORAGE_KEY_ATTENDED)
-    if (savedAttended) {
-      attendedList.value = JSON.parse(savedAttended)
-    }
-    const savedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES)
-    if (savedMemories) {
-      memories.value = JSON.parse(savedMemories)
-    }
-  } catch (e) {
-    console.error('Failed to load journey data', e)
+// เช็คสถานะการเข้าร่วม
+const isAttended = (id) => {
+  if (!journey) return false
+  if (typeof journey.isAttended === 'function') {
+    return journey.isAttended(id)
   }
+  const att = journey.attendances?.value || journey.attendances || journey.checkedEvents?.value || journey.checkedEvents || []
+  if (Array.isArray(att)) {
+    return att.includes(id) || att.some((x) => x === id || x?.id === id)
+  }
+  return !!att[id]
 }
 
-onMounted(() => {
-  loadStorage()
-})
-
-function isAttended(id) {
-  return attendedList.value.includes(id)
+// ดึงข้อความบันทึก
+const getMemory = (id) => {
+  if (!journey) return ''
+  if (typeof journey.getMemory === 'function') {
+    return journey.getMemory(id) || ''
+  }
+  const att = journey.attendances?.value || journey.attendances
+  if (att && att[id]) {
+    return typeof att[id] === 'string' ? att[id] : (att[id].memory || att[id].note || '')
+  }
+  const mems = journey.memories?.value || journey.memories
+  if (mems && mems[id]) return mems[id]
+  return ''
 }
 
+// กดปุ่ม Check-in / เคยไปงานนี้
 function handleCheckIn(id) {
-  if (isAttended(id)) {
-    attendedList.value = attendedList.value.filter((itemId) => itemId !== id)
+  if (!journey) return
+  if (typeof journey.toggleAttendance === 'function') {
+    journey.toggleAttendance(id)
+  } else if (typeof journey.toggleEvent === 'function') {
+    journey.toggleEvent(id)
+  } else if (typeof journey.toggleCheckIn === 'function') {
+    journey.toggleCheckIn(id)
+  } else if (isAttended(id)) {
+    if (typeof journey.removeCheckIn === 'function') journey.removeCheckIn(id)
+    else if (typeof journey.uncheck === 'function') journey.uncheck(id)
   } else {
-    attendedList.value.push(id)
+    if (typeof journey.checkIn === 'function') journey.checkIn(id)
+    else if (typeof journey.addCheckIn === 'function') journey.addCheckIn(id)
   }
-  localStorage.setItem(STORAGE_KEY_ATTENDED, JSON.stringify(attendedList.value))
-}
-
-function getMemory(id) {
-  return memories.value[id] || ''
 }
 
 function startEditMemory(id) {
@@ -57,12 +64,15 @@ function startEditMemory(id) {
 
 function saveMemory(id) {
   const text = (memoryDrafts.value[id] || '').trim()
-  if (text) {
-    memories.value[id] = text
-  } else {
-    delete memories.value[id]
+  if (journey) {
+    if (typeof journey.setMemory === 'function') {
+      journey.setMemory(id, text)
+    } else if (typeof journey.saveMemory === 'function') {
+      journey.saveMemory(id, text)
+    } else if (typeof journey.addMemory === 'function') {
+      journey.addMemory(id, text)
+    }
   }
-  localStorage.setItem(STORAGE_KEY_MEMORIES, JSON.stringify(memories.value))
   editingMemory.value[id] = false
 }
 
@@ -71,12 +81,23 @@ function cancelEditMemory(id) {
 }
 
 // ----------------------------------------------------
-// Filter & View State
+// Image Resolver & Filter
 // ----------------------------------------------------
+const imageErrors = ref({})
+
+function getImageSrc(item) {
+  if (imageErrors.value[item.id]) return null
+  return item.image || item.poster || item.cover || item.thumbnail || item.img || null
+}
+
+function onImageError(id) {
+  imageErrors.value[id] = true
+}
+
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const sortOrder = ref('desc')
-const viewMode = ref('list') // 'list' | 'calendar'
+const viewMode = ref('list')
 
 const categories = [
   { id: 'all', label: 'ทั้งหมด', emoji: '✨' },
@@ -93,9 +114,7 @@ const overseasKeywords = ['Paris', 'Taiwan', 'Macau', 'China', 'Philippines', 'S
 
 function isOverseas(location) {
   if (!location) return false
-  return overseasKeywords.some((keyword) =>
-    location.toLowerCase().includes(keyword.toLowerCase())
-  )
+  return overseasKeywords.some((kw) => location.toLowerCase().includes(kw.toLowerCase()))
 }
 
 const filteredEvents = computed(() => {
@@ -151,10 +170,10 @@ const groupedByMonth = computed(() => {
   <div class="events-page">
     <header class="events-header">
       <h1 class="title">ตารางงานและกิจกรรม 📅</h1>
-      <p class="subtitle">รวมตารางงาน อีเวนต์ และ Fan Meeting ทั้งหมดของลีน่าหมิว</p>
+      <p class="subtitle">รวมตารางงาน อีเวนต์ และ Fan Meeting ของลีน่าหมิว</p>
     </header>
 
-    <!-- Controls -->
+    <!-- Controls Card -->
     <div class="controls-card">
       <div class="search-bar">
         <span class="search-icon">🔍</span>
@@ -167,7 +186,7 @@ const groupedByMonth = computed(() => {
         <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">✕</button>
       </div>
 
-      <!-- Categories -->
+      <!-- Category Filter Pills -->
       <div class="category-pills">
         <button
           v-for="cat in categories"
@@ -183,9 +202,7 @@ const groupedByMonth = computed(() => {
 
       <!-- Toolbar -->
       <div class="toolbar">
-        <span class="result-count">
-          พบ {{ filteredEvents.length }} งาน • เคยไปแล้ว {{ attendedList.length }} งาน ✨
-        </span>
+        <span class="result-count">พบ {{ filteredEvents.length }} งาน</span>
         <div class="toolbar-actions">
           <button
             class="action-btn"
@@ -220,7 +237,7 @@ const groupedByMonth = computed(() => {
       <p>ลองเปลี่ยนคำค้นหาหรือตัวกรองหมวดหมู่อีกครั้ง</p>
     </div>
 
-    <!-- Events List View -->
+    <!-- List View -->
     <div v-else-if="viewMode === 'list'" class="events-grid">
       <div
         v-for="item in filteredEvents"
@@ -228,34 +245,36 @@ const groupedByMonth = computed(() => {
         class="event-card"
         :class="{ attended: isAttended(item.id) }"
       >
-        <!-- Card Visual Header -->
-        <div
-          v-if="item.image || item.poster || item.cover"
-          class="event-img-header"
-        >
-          <img :src="item.image || item.poster || item.cover" :alt="item.title" />
-          <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+        <!-- Poster / Banner with fixed aspect ratio -->
+        <div v-if="getImageSrc(item)" class="poster-wrapper">
+          <img
+            :src="getImageSrc(item)"
+            :alt="item.title"
+            class="poster-img"
+            loading="lazy"
+            @error="onImageError(item.id)"
+          />
+          <span v-if="item.type" class="type-floating-tag">{{ item.type }}</span>
         </div>
         <div
           v-else
-          class="event-color-header"
+          class="poster-fallback"
           :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
         >
-          <span class="header-icon">{{ item.emoji || '✨' }}</span>
-          <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+          <span class="fallback-emoji">{{ item.emoji || '✨' }}</span>
+          <span v-if="item.type" class="type-floating-tag">{{ item.type }}</span>
         </div>
 
         <div class="event-body">
           <div class="event-header-row">
             <span class="event-date">📅 {{ item.date }}</span>
-            <span v-if="isAttended(item.id)" class="attended-tag">💖 เคยไปแล้ว</span>
+            <span v-if="isAttended(item.id)" class="attended-tag">💖 ไปงานนี้มาแล้ว</span>
           </div>
 
           <h3 class="event-title">{{ item.title }}</h3>
           <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
           <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
-          <!-- Check-in Action -->
           <div class="event-actions">
             <button
               class="checkin-btn"
@@ -271,16 +290,16 @@ const groupedByMonth = computed(() => {
           <div v-if="isAttended(item.id)" class="memory-box">
             <div v-if="!editingMemory[item.id]" class="memory-display">
               <p v-if="getMemory(item.id)" class="memory-text">
-                💌 <strong>บันทึก:</strong> {{ getMemory(item.id) }}
+                💌 <strong>บันทึกความทรงจำ:</strong> {{ getMemory(item.id) }}
               </p>
               <button class="memory-btn" @click="startEditMemory(item.id)">
-                {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
+                {{ getMemory(item.id) ? '✏️ แก้ไขข้อความ' : '➕ เขียนบันทึกความทรงจำ' }}
               </button>
             </div>
             <div v-else class="memory-edit">
               <textarea
                 v-model="memoryDrafts[item.id]"
-                placeholder="เขียนความประทับใจในงานนี้..."
+                placeholder="เล่าความรู้สึกหรือความประทับใจในงานนี้..."
                 rows="2"
                 class="memory-input"
               ></textarea>
@@ -305,26 +324,29 @@ const groupedByMonth = computed(() => {
             class="event-card"
             :class="{ attended: isAttended(item.id) }"
           >
-            <div
-              v-if="item.image || item.poster || item.cover"
-              class="event-img-header"
-            >
-              <img :src="item.image || item.poster || item.cover" :alt="item.title" />
-              <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+            <div v-if="getImageSrc(item)" class="poster-wrapper">
+              <img
+                :src="getImageSrc(item)"
+                :alt="item.title"
+                class="poster-img"
+                loading="lazy"
+                @error="onImageError(item.id)"
+              />
+              <span v-if="item.type" class="type-floating-tag">{{ item.type }}</span>
             </div>
             <div
               v-else
-              class="event-color-header"
+              class="poster-fallback"
               :style="{ background: item.color || 'linear-gradient(135deg, #ff87a8, #ff6584)' }"
             >
-              <span class="header-icon">{{ item.emoji || '✨' }}</span>
-              <span v-if="item.type" class="floating-badge">{{ item.type }}</span>
+              <span class="fallback-emoji">{{ item.emoji || '✨' }}</span>
+              <span v-if="item.type" class="type-floating-tag">{{ item.type }}</span>
             </div>
 
             <div class="event-body">
               <div class="event-header-row">
                 <span class="event-date">📅 {{ item.date }}</span>
-                <span v-if="isAttended(item.id)" class="attended-tag">💖 เคยไปแล้ว</span>
+                <span v-if="isAttended(item.id)" class="attended-tag">💖 ไปงานนี้มาแล้ว</span>
               </div>
 
               <h3 class="event-title">{{ item.title }}</h3>
@@ -345,16 +367,16 @@ const groupedByMonth = computed(() => {
               <div v-if="isAttended(item.id)" class="memory-box">
                 <div v-if="!editingMemory[item.id]" class="memory-display">
                   <p v-if="getMemory(item.id)" class="memory-text">
-                    💌 <strong>บันทึก:</strong> {{ getMemory(item.id) }}
+                    💌 <strong>บันทึกความทรงจำ:</strong> {{ getMemory(item.id) }}
                   </p>
                   <button class="memory-btn" @click="startEditMemory(item.id)">
-                    {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
+                    {{ getMemory(item.id) ? '✏️ แก้ไขข้อความ' : '➕ เขียนบันทึกความทรงจำ' }}
                   </button>
                 </div>
                 <div v-else class="memory-edit">
                   <textarea
                     v-model="memoryDrafts[item.id]"
-                    placeholder="เขียนความประทับใจในงานนี้..."
+                    placeholder="เล่าความรู้สึกหรือความประทับใจในงานนี้..."
                     rows="2"
                     class="memory-input"
                   ></textarea>
@@ -532,34 +554,44 @@ const groupedByMonth = computed(() => {
 
 .event-card.attended {
   border-color: #ff87a8;
-  background: #fffdfd;
+  background: #fffcfd;
 }
 
-.event-color-header {
-  height: 90px;
+/* Poster Aspect Ratio Styling */
+.poster-wrapper {
   position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  transition: transform 0.3s ease;
+}
+
+.event-card:hover .poster-img {
+  transform: scale(1.03);
+}
+
+.poster-fallback {
+  position: relative;
+  width: 100%;
+  height: 110px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.header-icon {
-  font-size: 2.5rem;
+.fallback-emoji {
+  font-size: 2.8rem;
 }
 
-.event-img-header {
-  position: relative;
-  height: 160px;
-  width: 100%;
-}
-
-.event-img-header img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.floating-badge {
+.type-floating-tag {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -567,9 +599,10 @@ const groupedByMonth = computed(() => {
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(15, 23, 42, 0.7);
   color: #ffffff;
   backdrop-filter: blur(4px);
+  text-transform: capitalize;
 }
 
 .event-body {
@@ -629,7 +662,7 @@ const groupedByMonth = computed(() => {
 
 .checkin-btn {
   width: 100%;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #ff87a8;
   background: rgba(255, 135, 168, 0.08);
