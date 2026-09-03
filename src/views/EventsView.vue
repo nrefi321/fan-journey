@@ -1,671 +1,614 @@
+<script setup>
+import { ref, computed } from 'vue'
+import { EVENTS } from '../data/events'
+import { useFanJourney } from '../composables/useFanJourney'
+
+// ----------------------------------------------------
+// Fan Journey Integration
+// ----------------------------------------------------
+const { attendances, checkIn, removeCheckIn, setMemory } = useFanJourney()
+
+const editingMemory = ref({})
+const memoryDrafts = ref({})
+
+const isAttended = (id) => !!attendances.value?.[id]
+const getMemory = (id) => attendances.value?.[id]?.memory || ''
+
+function handleCheckIn(id) {
+  if (isAttended(id)) {
+    removeCheckIn(id)
+  } else {
+    checkIn(id)
+  }
+}
+
+function startEditMemory(id) {
+  memoryDrafts.value[id] = getMemory(id)
+  editingMemory.value[id] = true
+}
+
+function saveMemory(id) {
+  setMemory(id, memoryDrafts.value[id] || '')
+  editingMemory.value[id] = false
+}
+
+function cancelEditMemory(id) {
+  editingMemory.value[id] = false
+}
+
+// ----------------------------------------------------
+// Filter & View State
+// ----------------------------------------------------
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+const sortOrder = ref('desc')
+const viewMode = ref('list') // 'list' | 'calendar'
+
+const categories = [
+  { id: 'all', label: 'ทั้งหมด', emoji: '✨' },
+  { id: 'fan_meeting', label: 'Fan Meeting', emoji: '🎉' },
+  { id: 'fashion', label: 'Fashion / Brand', emoji: '👗' },
+  { id: 'expo', label: 'Expo / Event', emoji: '🎪' },
+  { id: 'concert', label: 'Concert / Music', emoji: '🎵' },
+  { id: 'movie', label: 'Movie', emoji: '🎬' },
+  { id: 'overseas', label: 'ต่างประเทศ', emoji: '✈️' },
+  { id: 'open_only', label: 'เฉพาะงานเปิด', emoji: '🔓' }
+]
+
+const overseasKeywords = ['Paris', 'Taiwan', 'Macau', 'China', 'Philippines', 'Singapore']
+
+function isOverseas(location) {
+  if (!location) return false
+  return overseasKeywords.some(keyword => location.toLowerCase().includes(keyword.toLowerCase()))
+}
+
+const filteredEvents = computed(() => {
+  return EVENTS.filter((item) => {
+    // Search
+    const q = searchQuery.value.trim().toLowerCase()
+    const matchSearch =
+      !q ||
+      item.title?.toLowerCase().includes(q) ||
+      item.location?.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q)
+
+    // Category
+    let matchCat = true
+    if (selectedCategory.value === 'overseas') {
+      matchCat = isOverseas(item.location)
+    } else if (selectedCategory.value === 'open_only') {
+      matchCat = !item.description?.includes('งานปิด')
+    } else if (selectedCategory.value !== 'all') {
+      matchCat = item.type === selectedCategory.value
+    }
+
+    return matchSearch && matchCat
+  }).sort((a, b) => {
+    const dateA = new Date(a.date).getTime()
+    const dateB = new Date(b.date).getTime()
+    return sortOrder.value === 'asc' ? dateA - dateB : dateB - dateA
+  })
+})
+
+// Calendar Grouping
+const groupedByMonth = computed(() => {
+  const groups = {}
+  filteredEvents.value.forEach((item) => {
+    const d = new Date(item.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!groups[key]) {
+      const monthNames = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+      ]
+      const thaiYear = d.getFullYear() + 543
+      groups[key] = {
+        label: `${monthNames[d.getMonth()]} ${thaiYear}`,
+        events: []
+      }
+    }
+    groups[key].events.push(item)
+  })
+  return groups
+})
+</script>
+
 <template>
   <div class="events-page">
-    <div class="events-container">
-      <!-- Header -->
-      <header class="page-header">
-        <h1 class="page-title">LENAMIU 2026 SCHEDULE</h1>
-        <p class="page-subtitle">ตารางงานและกิจกรรมทั้งหมดของเลน่ามิว</p>
-        <div v-if="checkedInCount > 0" class="checkin-counter-badge">
-          🎉 คุณไปร่วมงานมาแล้ว <span>{{ checkedInCount }}</span> งาน!
-        </div>
-      </header>
+    <header class="events-header">
+      <h1 class="title">ตารางงานและกิจกรรม 📅</h1>
+      <p class="subtitle">รวมตารางงาน อีเวนต์ และ Fan Meeting ของลีน่าหมิว</p>
+    </header>
 
-      <!-- Search & Filters -->
-      <div class="filter-section">
-        <div class="search-bar">
-          <span class="search-icon">🔍</span>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="ค้นหางาน, สถานที่, หรือรายละเอียด..."
-          />
-          <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">✕</button>
-        </div>
-
-        <div class="view-switch">
-          <button
-            :class="['switch-btn', { active: viewMode === 'list' }]"
-            @click="viewMode = 'list'"
-          >
-            📋 รายการ
-          </button>
-          <button
-            :class="['switch-btn', { active: viewMode === 'calendar' }]"
-            @click="viewMode = 'calendar'"
-          >
-            📅 ปฏิทิน
-          </button>
-        </div>
+    <!-- Controls -->
+    <div class="controls-card">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="ค้นหางาน, สถานที่, รายละเอียด..."
+          class="search-input"
+        />
+        <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">✕</button>
       </div>
 
-      <!-- Category Filter Pills -->
+      <!-- Categories -->
       <div class="category-pills">
         <button
-          v-for="cat in CATEGORIES"
+          v-for="cat in categories"
           :key="cat.id"
-          :class="['pill-btn', { active: selectedCategory === cat.id }]"
+          class="pill-btn"
+          :class="{ active: selectedCategory === cat.id }"
           @click="selectedCategory = cat.id"
         >
-          {{ cat.label }}
+          <span>{{ cat.emoji }}</span>
+          <span>{{ cat.label }}</span>
         </button>
       </div>
 
-      <!-- Info Bar -->
-      <div class="info-bar">
-        <span class="events-total">พบ {{ filteredEvents.length }} กิจกรรม</span>
-        <button class="sort-toggle" @click="toggleSort">
-          {{ sortOrder === 'desc' ? '⌛ วันที่: ปัจจุบัน ➔ อดีต (ล่าสุดก่อน)' : '⏳ วันที่: อดีต ➔ ปัจจุบัน' }}
-        </button>
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <span class="result-count">พบ {{ filteredEvents.length }} งาน</span>
+        <div class="toolbar-actions">
+          <button
+            class="action-btn"
+            @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+          >
+            {{ sortOrder === 'desc' ? '⬇️ ล่าสุดก่อน' : '⬆️ เก่าสุดก่อน' }}
+          </button>
+          <div class="view-toggle">
+            <button
+              class="view-btn"
+              :class="{ active: viewMode === 'list' }"
+              @click="viewMode = 'list'"
+            >
+              📋 รายการ
+            </button>
+            <button
+              class="view-btn"
+              :class="{ active: viewMode === 'calendar' }"
+              @click="viewMode = 'calendar'"
+            >
+              📅 แยกรายเดือน
+            </button>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <!-- Empty State -->
-      <div v-if="filteredEvents.length === 0" class="no-results">
-        <p>ไม่พบกิจกรรมที่คุณค้นหา</p>
+    <!-- Empty State -->
+    <div v-if="filteredEvents.length === 0" class="empty-state">
+      <p class="empty-emoji">🔍</p>
+      <h3>ไม่พบกิจกรรมที่ค้นหา</h3>
+      <p>ลองเปลี่ยนคำค้นหาหรือตัวกรองหมวดหมู่อีกครั้ง</p>
+    </div>
+
+    <!-- List View -->
+    <div v-else-if="viewMode === 'list'" class="events-grid">
+      <div
+        v-for="item in filteredEvents"
+        :key="item.id"
+        class="event-card"
+        :class="{ attended: isAttended(item.id) }"
+      >
+        <div class="event-header-row">
+          <span class="event-date">📅 {{ item.date }}</span>
+          <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
+        </div>
+
+        <h3 class="event-title">{{ item.emoji || '✨' }} {{ item.title }}</h3>
+        <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
+        <p v-if="item.description" class="event-desc">{{ item.description }}</p>
+
+        <!-- Check-in Action -->
+        <div class="event-actions">
+          <button
+            class="checkin-btn"
+            :class="{ active: isAttended(item.id) }"
+            @click="handleCheckIn(item.id)"
+          >
+            <span v-if="isAttended(item.id)">✅ เคยไปงานนี้แล้ว</span>
+            <span v-else>📍 ฉันเคยไปงานนี้</span>
+          </button>
+        </div>
+
+        <!-- Memory Section (Visible when attended) -->
+        <div v-if="isAttended(item.id)" class="memory-box">
+          <div v-if="!editingMemory[item.id]" class="memory-display">
+            <p v-if="getMemory(item.id)" class="memory-text">
+              💌 <strong>ความทรงจำ:</strong> {{ getMemory(item.id) }}
+            </p>
+            <button class="memory-btn" @click="startEditMemory(item.id)">
+              {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
+            </button>
+          </div>
+          <div v-else class="memory-edit">
+            <textarea
+              v-model="memoryDrafts[item.id]"
+              placeholder="เล่าความประทับใจในงานนี้..."
+              rows="2"
+              class="memory-input"
+            ></textarea>
+            <div class="memory-actions">
+              <button class="save-btn" @click="saveMemory(item.id)">บันทึก</button>
+              <button class="cancel-btn" @click="cancelEditMemory(item.id)">ยกเลิก</button>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <!-- Event Cards Wrapper -->
-      <div v-else :class="['events-wrapper', viewMode]">
-        <!-- List View -->
-        <template v-if="viewMode === 'list'">
+    <!-- Calendar View (Grouped by Month) -->
+    <div v-else class="calendar-group-container">
+      <div v-for="(group, key) in groupedByMonth" :key="key" class="month-section">
+        <h2 class="month-title">{{ group.label }} ({{ group.events.length }} งาน)</h2>
+        <div class="events-grid">
           <div
-            v-for="item in filteredEvents"
+            v-for="item in group.events"
             :key="item.id"
             class="event-card"
-            :class="{ 'has-checked': checkedInEvents.includes(item.id) }"
-            :style="{
-              borderLeft: item.g ? `4px solid ${item.g[0]}` : '4px solid #ff4b72'
-            }"
+            :class="{ attended: isAttended(item.id) }"
           >
-            <!-- แสดงรูปเฉพาะเมื่อมีฟิลด์ image -->
-            <div v-if="item.image" class="card-media">
-              <img
-                :src="item.image"
-                :alt="item.title"
-                class="poster-image"
-                loading="lazy"
-              />
+            <div class="event-header-row">
+              <span class="event-date">📅 {{ item.date }}</span>
+              <span v-if="item.type" class="event-type-badge">{{ item.type }}</span>
             </div>
 
-            <div class="card-details">
-              <div class="title-row">
-                <span class="title-emoji">{{ item.emoji || '🎬' }}</span>
-                <div class="title-meta-wrap">
-                  <h3 class="event-title">{{ item.title }}</h3>
-                  <div class="meta-row">
-                    <span class="event-date">🗓️ {{ item.date }}</span>
-                    <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
-                  </div>
-                </div>
-              </div>
+            <h3 class="event-title">{{ item.emoji || '✨' }} {{ item.title }}</h3>
+            <p v-if="item.location" class="event-location">📍 {{ item.location }}</p>
+            <p v-if="item.description" class="event-desc">{{ item.description }}</p>
 
-              <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
+            <!-- Check-in Action -->
+            <div class="event-actions">
+              <button
+                class="checkin-btn"
+                :class="{ active: isAttended(item.id) }"
+                @click="handleCheckIn(item.id)"
+              >
+                <span v-if="isAttended(item.id)">✅ เคยไปงานนี้แล้ว</span>
+                <span v-else>📍 ฉันเคยไปงานนี้</span>
+              </button>
+            </div>
 
-              <div class="card-bottom">
-                <div class="badge-group">
-                  <span v-if="isOpenEvent(item.desc)" class="tag open">🟢 ไปร่วมเชียร์ได้</span>
-                  <span v-else class="tag private">🔴 งานปิด</span>
-                  <span v-if="isOverseas(item.location)" class="tag overseas">✈️ ต่างประเทศ</span>
-                </div>
-
-                <button
-                  :class="['btn-i-was-here', { active: checkedInEvents.includes(item.id) }]"
-                  @click="toggleCheckIn(item.id)"
-                >
-                  <span class="btn-icon">{{ checkedInEvents.includes(item.id) ? '✅' : '📍' }}</span>
-                  <span>I Was Here</span>
+            <!-- Memory Section -->
+            <div v-if="isAttended(item.id)" class="memory-box">
+              <div v-if="!editingMemory[item.id]" class="memory-display">
+                <p v-if="getMemory(item.id)" class="memory-text">
+                  💌 <strong>ความทรงจำ:</strong> {{ getMemory(item.id) }}
+                </p>
+                <button class="memory-btn" @click="startEditMemory(item.id)">
+                  {{ getMemory(item.id) ? '✏️ แก้ไขบันทึก' : '➕ เขียนบันทึกความทรงจำ' }}
                 </button>
               </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Calendar View (Grouped by Month) -->
-        <template v-else>
-          <div
-            v-for="(group, monthKey) in eventsByMonth"
-            :key="monthKey"
-            class="calendar-month-block"
-          >
-            <div class="month-title-bar">
-              <h2>{{ getMonthLabel(monthKey) }}</h2>
-              <span class="month-event-count">{{ group.length }} กิจกรรม</span>
-            </div>
-
-            <div class="calendar-cards-grid">
-              <div
-                v-for="item in group"
-                :key="item.id"
-                class="event-card"
-                :class="{ 'has-checked': checkedInEvents.includes(item.id) }"
-                :style="{
-                  borderLeft: item.g ? `4px solid ${item.g[0]}` : '4px solid #ff4b72'
-                }"
-              >
-                <!-- แสดงรูปเฉพาะเมื่อมีฟิลด์ image -->
-                <div v-if="item.image" class="card-media">
-                  <img
-                    :src="item.image"
-                    :alt="item.title"
-                    class="poster-image"
-                    loading="lazy"
-                  />
-                </div>
-
-                <div class="card-details">
-                  <div class="title-row">
-                    <span class="title-emoji">{{ item.emoji || '🎬' }}</span>
-                    <div class="title-meta-wrap">
-                      <h3 class="event-title">{{ item.title }}</h3>
-                      <div class="meta-row">
-                        <span class="event-date">🗓️ {{ item.date }}</span>
-                        <span v-if="item.location" class="event-loc">📍 {{ item.location }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p v-if="item.desc" class="event-desc">{{ item.desc }}</p>
-
-                  <div class="card-bottom">
-                    <div class="badge-group">
-                      <span v-if="isOpenEvent(item.desc)" class="tag open">🟢 ไปร่วมเชียร์ได้</span>
-                      <span v-else class="tag private">🔴 งานปิด</span>
-                      <span v-if="isOverseas(item.location)" class="tag overseas">✈️ ต่างประเทศ</span>
-                    </div>
-
-                    <button
-                      :class="['btn-i-was-here', { active: checkedInEvents.includes(item.id) }]"
-                      @click="toggleCheckIn(item.id)"
-                    >
-                      <span class="btn-icon">{{ checkedInEvents.includes(item.id) ? '✅' : '📍' }}</span>
-                      <span>I Was Here</span>
-                    </button>
-                  </div>
+              <div v-else class="memory-edit">
+                <textarea
+                  v-model="memoryDrafts[item.id]"
+                  placeholder="เล่าความประทับใจในงานนี้..."
+                  rows="2"
+                  class="memory-input"
+                ></textarea>
+                <div class="memory-actions">
+                  <button class="save-btn" @click="saveMemory(item.id)">บันทึก</button>
+                  <button class="cancel-btn" @click="cancelEditMemory(item.id)">ยกเลิก</button>
                 </div>
               </div>
             </div>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { EVENTS } from '../data/events'
-
-const searchQuery = ref('')
-const selectedCategory = ref('all')
-const viewMode = ref('list')
-// 🟢 ตั้งต้นให้เรียงจาก ปัจจุบัน/ล่าสุด -> อดีต
-const sortOrder = ref('desc')
-const checkedInEvents = ref([])
-
-onMounted(() => {
-  const saved = localStorage.getItem('lenamiu_checked_in_events')
-  if (saved) {
-    try {
-      checkedInEvents.value = JSON.parse(saved)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-})
-
-const toggleCheckIn = (id) => {
-  if (checkedInEvents.value.includes(id)) {
-    checkedInEvents.value = checkedInEvents.value.filter(item => item !== id)
-  } else {
-    checkedInEvents.value.push(id)
-  }
-  localStorage.setItem('lenamiu_checked_in_events', JSON.stringify(checkedInEvents.value))
-}
-
-const checkedInCount = computed(() => checkedInEvents.value.length)
-
-const CATEGORIES = [
-  { id: 'all', label: 'ทั้งหมด' },
-  { id: 'meeting', label: 'Fan Meeting' },
-  { id: 'fashion', label: 'Fashion' },
-  { id: 'brand', label: 'Brand Event' },
-  { id: 'live', label: 'Live' },
-  { id: 'overseas', label: 'ต่างประเทศ' },
-  { id: 'open', label: 'ไปร่วมเชียร์ได้' }
-]
-
-const MONTH_NAMES = [
-  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
-  'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
-  'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-]
-
-const isOverseas = (location = '') => {
-  const keywords = ['Paris', 'Taiwan', 'Macau', 'China', 'Philippines', 'ต่างประเทศ', 'Japan', 'Singapore']
-  return keywords.some(kw => location.toLowerCase().includes(kw.toLowerCase()))
-}
-
-const isOpenEvent = (desc = '') => {
-  return !desc.includes('งานปิด') && !desc.includes('Private')
-}
-
-const toggleSort = () => {
-  sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
-}
-
-// กรองและเรียงลำดับกิจกรรม
-const filteredEvents = computed(() => {
-  return EVENTS.filter(item => {
-    const q = searchQuery.value.trim().toLowerCase()
-    const matchesSearch =
-      !q ||
-      item.title.toLowerCase().includes(q) ||
-      (item.location && item.location.toLowerCase().includes(q)) ||
-      (item.desc && item.desc.toLowerCase().includes(q))
-
-    let matchesCategory = true
-    if (selectedCategory.value === 'overseas') {
-      matchesCategory = isOverseas(item.location)
-    } else if (selectedCategory.value === 'open') {
-      matchesCategory = isOpenEvent(item.desc)
-    } else if (selectedCategory.value !== 'all') {
-      matchesCategory = item.type === selectedCategory.value
-    }
-
-    return matchesSearch && matchesCategory
-  }).sort((a, b) => {
-    const dateA = new Date(a.date).getTime()
-    const dateB = new Date(b.date).getTime()
-    return sortOrder.value === 'desc' ? dateB - dateA : dateA - dateB
-  })
-})
-
-// จัดกลุ่มตามเดือนและเรียงลำดับเดือน
-const eventsByMonth = computed(() => {
-  const groups = {}
-  filteredEvents.value.forEach(item => {
-    const d = new Date(item.date)
-    if (isNaN(d)) return
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    if (!groups[key]) groups[key] = []
-    groups[key].push(item)
-  })
-
-  // เรียงลำดับคีย์ของเดือนตาม sortOrder
-  const sortedKeys = Object.keys(groups).sort((a, b) => {
-    return sortOrder.value === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
-  })
-
-  const sortedGroups = {}
-  sortedKeys.forEach(key => {
-    sortedGroups[key] = groups[key]
-  })
-
-  return sortedGroups
-})
-
-const getMonthLabel = (monthKey) => {
-  const [year, month] = monthKey.split('-')
-  const monthIdx = parseInt(month, 10) - 1
-  return `${MONTH_NAMES[monthIdx]} ${year}`
-}
-</script>
-
 <style scoped>
 .events-page {
-  min-height: 100vh;
-  background-color: #0f0c1b;
-  color: #f1f1f5;
-  padding: 32px 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.events-container {
-  max-width: 780px;
+  max-width: 1080px;
   margin: 0 auto;
+  padding: 24px 16px 60px;
 }
 
-.page-header {
+.events-header {
   text-align: center;
   margin-bottom: 24px;
 }
 
-.page-title {
+.title {
   font-size: 2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #ff758c, #ff7eb3);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 6px;
+  color: #1e293b;
+  margin-bottom: 8px;
 }
 
-.page-subtitle {
-  color: #9d9aa8;
-  font-size: 0.95rem;
+.subtitle {
+  color: #64748b;
+  font-size: 1rem;
 }
 
-.checkin-counter-badge {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 6px 18px;
-  background: rgba(255, 75, 114, 0.15);
-  border: 1px solid rgba(255, 75, 114, 0.3);
-  border-radius: 20px;
-  color: #ff85a2;
-  font-size: 0.9rem;
-}
-
-.checkin-counter-badge span {
-  font-weight: bold;
-  color: #fff;
-}
-
-.filter-section {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.search-bar {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  background: #191428;
-  border: 1px solid #2d2644;
-  border-radius: 10px;
-  padding: 0 12px;
-}
-
-.search-icon {
-  font-size: 0.9rem;
-  opacity: 0.6;
-}
-
-.search-bar input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #fff;
-  padding: 12px 10px;
-  font-size: 0.95rem;
-}
-
-.search-bar input::placeholder {
-  color: #726b88;
-}
-
-.clear-btn {
-  background: none;
-  border: none;
-  color: #8c83a8;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.view-switch {
-  display: flex;
-  background: #191428;
-  border: 1px solid #2d2644;
-  border-radius: 10px;
-  padding: 3px;
-}
-
-.switch-btn {
-  background: transparent;
-  border: none;
-  color: #8c83a8;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.switch-btn.active {
-  background: #ff4b72;
-  color: #fff;
-  font-weight: 600;
-}
-
-.category-pills {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 10px;
-  margin-bottom: 14px;
-  scrollbar-width: none;
-}
-
-.category-pills::-webkit-scrollbar {
-  display: none;
-}
-
-.pill-btn {
-  white-space: nowrap;
-  background: #191428;
-  border: 1px solid #2d2644;
-  color: #9d9aa8;
-  padding: 7px 14px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pill-btn.active {
-  background: #ff4b72;
-  border-color: #ff4b72;
-  color: #fff;
-  font-weight: 600;
-}
-
-.info-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-  font-size: 0.85rem;
-  color: #8c83a8;
-}
-
-.sort-toggle {
-  background: transparent;
-  border: none;
-  color: #ff85a2;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.events-wrapper {
+.controls-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  margin-bottom: 28px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Event Card */
-.event-card {
-  background: #191428;
-  border: 1px solid #2d2644;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.event-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-
-.event-card.has-checked {
-  border-color: #2e7d32;
-  border-left-color: #4caf50 !important;
-}
-
-/* Image Container: จัดสัดส่วนไม่ให้หัวขาด */
-.card-media {
-  width: 100%;
-  max-height: 320px;
-  background: #0d0a17;
+.search-bar {
+  position: relative;
   display: flex;
-  justify-content: center;
   align-items: center;
-  border-bottom: 1px solid #241d38;
 }
 
-.poster-image {
+.search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 1.1rem;
+}
+
+.search-input {
   width: 100%;
-  height: auto;
-  max-height: 320px;
-  object-fit: contain;
-  display: block;
+  padding: 12px 40px 12px 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-/* Card Details */
-.card-details {
-  padding: 16px 18px;
+.search-input:focus {
+  border-color: #ff87a8;
 }
 
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
+.clear-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 1rem;
 }
 
-.title-emoji {
-  font-size: 1.5rem;
-  line-height: 1.2;
-}
-
-.title-meta-wrap {
-  flex: 1;
-}
-
-.event-title {
-  margin: 0 0 6px 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.35;
-}
-
-.meta-row {
+.category-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
+}
+
+.pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  color: #475569;
   font-size: 0.88rem;
-  color: #a49bbb;
-}
-
-.event-desc {
-  margin: 8px 0 14px 0;
-  font-size: 0.9rem;
-  color: #d1cde0;
-  line-height: 1.5;
-}
-
-.card-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed #261f3a;
-}
-
-.badge-group {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  font-size: 0.75rem;
-  padding: 4px 9px;
-  border-radius: 6px;
-  background: #231c36;
-  color: #b5adc9;
-}
-
-.tag.open {
-  background: rgba(46, 125, 50, 0.2);
-  color: #81c784;
-}
-
-.tag.private {
-  background: rgba(198, 40, 40, 0.2);
-  color: #e57373;
-}
-
-.tag.overseas {
-  background: rgba(2, 136, 209, 0.2);
-  color: #4fc3f7;
-}
-
-/* I Was Here Button */
-.btn-i-was-here {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #ffffff;
-  border: 1px solid #ffffff;
-  color: #191428;
-  font-weight: 700;
-  font-size: 0.85rem;
-  padding: 6px 16px;
-  border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.btn-i-was-here:hover {
-  background: #f0f0f0;
-  transform: scale(1.03);
+.pill-btn:hover {
+  background: #f1f5f9;
 }
 
-.btn-i-was-here.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
+.pill-btn.active {
+  background: linear-gradient(135deg, #ff87a8, #ff6584);
   color: #ffffff;
+  border-color: transparent;
 }
 
-/* Calendar Month Grouping */
-.calendar-month-block {
-  margin-bottom: 28px;
-}
-
-.month-title-bar {
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 8px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid #2d2644;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
 }
 
-.month-title-bar h2 {
-  font-size: 1.25rem;
-  color: #ff85a2;
-  margin: 0;
+.result-count {
+  font-size: 0.88rem;
+  color: #64748b;
+  font-weight: 500;
 }
 
-.month-event-count {
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn, .view-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
   font-size: 0.85rem;
-  color: #8c83a8;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.calendar-cards-grid {
+.view-btn.active {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+.events-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
-.no-results {
+.event-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s;
+}
+
+.event-card.attended {
+  border-color: #ff87a8;
+  background: #fffbfa;
+}
+
+.event-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.event-date {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ff6584;
+}
+
+.event-type-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.event-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 4px 0 6px;
+  line-height: 1.4;
+}
+
+.event-location {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.event-desc {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  flex-grow: 1;
+}
+
+.event-actions {
+  margin-top: 12px;
+}
+
+.checkin-btn {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid #ff87a8;
+  background: rgba(255, 135, 168, 0.08);
+  color: #ff5b84;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkin-btn.active {
+  background: linear-gradient(135deg, #ff87a8, #ff6584);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.memory-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ffd4e0;
+}
+
+.memory-text {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.memory-btn {
+  background: none;
+  border: none;
+  color: #ff6584;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+}
+
+.memory-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ffd4e0;
+  font-size: 0.85rem;
+  resize: vertical;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+}
+
+.memory-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.save-btn, .cancel-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  border: none;
+  cursor: pointer;
+}
+
+.save-btn {
+  background: #ff6584;
+  color: #ffffff;
+}
+
+.cancel-btn {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.month-section {
+  margin-bottom: 32px;
+}
+
+.month-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #ff87a8;
+  display: inline-block;
+}
+
+.empty-state {
   text-align: center;
-  padding: 50px 0;
-  color: #726b88;
+  padding: 60px 20px;
+  color: #64748b;
+}
+
+.empty-emoji {
+  font-size: 3rem;
+  margin-bottom: 8px;
 }
 </style>
