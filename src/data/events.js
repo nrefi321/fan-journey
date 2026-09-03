@@ -426,17 +426,17 @@ export const EVENTS = [
     emoji: '🌸',
     g: ['#FF87A8', '#FFE1A8']
   },
-{
-  id: 'e1', // หรือ id เดิมที่มีในไฟล์ของคุณ
-  title: 'Please Love Me First Premiere',
-  date: '2026-01-28', // ปรับวันที่ตามจริงได้เลยครับ
-  location: 'Bangkok, Thailand',
-  desc: 'งานเปิดตัวรอบปฐมทัศน์ซีรีส์ Please Love Me First',
-  image: '/images/events/plslove_firstep.jfif', // เพิ่มตรงนี้เรียบร้อยครับ
-  type: 'premiere',
-  emoji: '🎬',
-  g: ['#FF6B81', '#FFA07A']
-},
+  {
+    id: 'e42', 
+    title: 'Please Love Me First Premiere',
+    date: '2026-09-11', 
+    location: 'Bangkok, Thailand',
+    desc: 'งานเปิดตัวรอบปฐมทัศน์ซีรีส์ Please Love Me First',
+    image: '/images/events/plslove_firstep.jfif', // เพิ่มตรงนี้เรียบร้อยครับ
+    type: 'premiere',
+    emoji: '🎬',
+    g: ['#FF6B81', '#FFA07A']
+  },
   {
     id: 'e43',
     title: 'M Choice Awards 2026 (LENA)',
