@@ -67,18 +67,14 @@
           <div class="card-footer">lenamiu-fan-journey.vercel.app</div>
         </div>
 
-        <button class="btn btn-primary share-btn" @click="shareCard">
-          🖼️ แชร์การ์ดนี้ไป X
-        </button>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary share-btn" @click="shareCard">
-          🐦 แชร์ไป X
-        </button>
-        <button class="btn btn-ghost share-btn" @click="saveCardImage">
-          💾 บันทึกรูปการ์ด
-        </button>
+        <div class="btn-row">
+          <button class="btn btn-primary share-btn" @click="shareCard">
+            🐦 แชร์ไป X
+          </button>
+          <button class="btn btn-ghost share-btn" @click="saveCardImage">
+            💾 บันทึกรูปการ์ด
+          </button>
+        </div>
       </div>
 
       <!-- ===== TIMELINE ===== -->
@@ -114,7 +110,7 @@ import { yearOf, formatDate } from '../utils/format'
 
 const { state, EVENTS, EVENTS_BY_ID, ACHIEVEMENTS, total } = useFanJourney()
 const cardRef = ref(null)
-  
+
 // ─── Achievement replay ───────────────────────────────────────
 function unlockedIds(attendances) {
   return new Set(ACHIEVEMENTS.filter((a) => a.check(attendances)).map((a) => a.id))
@@ -203,7 +199,7 @@ const favoriteType = computed(() => {
   const meta = TYPE_META[top[0]] || { label: top[0], emoji: '✨' }
   return { ...meta, count: top[1] }
 })
-  
+
 async function captureCard() {
   const html2canvas = (await import('html2canvas')).default
   return html2canvas(cardRef.value, {
@@ -234,7 +230,7 @@ async function saveCardImage() {
   link.click()
   URL.revokeObjectURL(link.href)
 }
-  
+
 // ─── Share to X ───────────────────────────────────────────────
 function shareCard() {
   const lines = [
@@ -362,7 +358,7 @@ function shareCard() {
 }
 .ms-text {
   flex: 1;
-  min-width: 0; /* ← เพิ่มบรรทัดนี้ ทำให้ ellipsis ทำงานจริงแทนการดันการ์ดให้ล้น */
+  min-width: 0; /* ellipsis ทำงานจริง แทนที่จะดันการ์ดให้ล้นจอมือถือ */
 }
 .ms-emoji { font-size: 18px; flex-shrink: 0; }
 .ms-label {
