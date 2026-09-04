@@ -11,13 +11,21 @@
       <!-- ===== SHARE CARD ===== -->
       <div class="share-section">
         <div class="journey-card" ref="cardRef">
-          <!-- bg decoration -->
-          <div class="card-bg-circle card-bg-1"></div>
-          <div class="card-bg-circle card-bg-2"></div>
 
-          <div class="card-eyebrow">LENA × MIU</div>
-          <div class="card-title">FAN JOURNEY 🤍</div>
+          <!-- header: title + hero placeholder -->
+          <div class="card-header">
+            <div class="card-heading">
+              <div class="card-eyebrow">LENA × MIU</div>
+              <div class="card-title">FAN JOURNEY</div>
+              <div class="card-tagline">little moments, precious memories</div>
+            </div>
+            <div class="card-hero">
+              <span class="card-hero-icon">🫶</span>
+              <span class="card-hero-hint">แนบรูปคู่ตรงนี้ทีหลังได้</span>
+            </div>
+          </div>
 
+          <!-- stats -->
           <div class="card-stats-row">
             <div class="card-stat">
               <div class="card-stat-num">{{ total }}</div>
@@ -30,31 +38,60 @@
             </div>
             <div class="card-stat-divider"></div>
             <div class="card-stat">
-              <div class="card-stat-num">{{ memoriesCount }}</div>
-              <div class="card-stat-lbl">บันทึกที่เขียน</div>
+              <div class="card-stat-num accent">{{ memoriesCount }}</div>
+              <div class="card-stat-lbl">บันทึกที่เขียน 🤍</div>
             </div>
           </div>
 
+          <!-- milestones -->
           <div class="card-milestones">
             <div v-if="firstEvent" class="card-milestone">
-              <span class="ms-emoji">🌱</span>
+              <div class="ms-thumb" :class="{ 'has-img': firstEvent.image }">
+                <img v-if="firstEvent.image" :src="firstEvent.image" alt="" />
+                <span v-else>🌱</span>
+              </div>
               <div class="ms-text">
-                <div class="ms-label">ครั้งแรก</div>
+                <div class="ms-tag">First</div>
                 <div class="ms-value">{{ firstEvent.title }}</div>
+                <div class="ms-date">{{ formatDate(firstEvent.date) }}</div>
               </div>
             </div>
-            <div v-if="latestEvent" class="card-milestone">
-              <span class="ms-emoji">✨</span>
+
+            <div v-if="latestEvent" class="card-milestone highlight">
+              <div class="ms-thumb accent" :class="{ 'has-img': latestEvent.image }">
+                <img v-if="latestEvent.image" :src="latestEvent.image" alt="" />
+                <span v-else>✨</span>
+              </div>
               <div class="ms-text">
-                <div class="ms-label">ล่าสุด</div>
+                <div class="ms-tag accent">Latest</div>
                 <div class="ms-value">{{ latestEvent.title }}</div>
+                <div class="ms-date">{{ formatDate(latestEvent.date) }}</div>
               </div>
             </div>
+
             <div v-if="favoriteType" class="card-milestone">
-              <span class="ms-emoji">{{ favoriteType.emoji }}</span>
+              <div class="ms-thumb">
+                <span>{{ favoriteType.emoji }}</span>
+              </div>
               <div class="ms-text">
-                <div class="ms-label">งานที่ไปบ่อยสุด</div>
-                <div class="ms-value">{{ favoriteType.label }} ({{ favoriteType.count }} ครั้ง)</div>
+                <div class="ms-tag">Most Visited</div>
+                <div class="ms-value">{{ favoriteType.label }} · {{ favoriteType.count }} ครั้ง</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- collected moments -->
+          <div class="card-collected">
+            <div class="cc-title">✧ Collected Moments ✧</div>
+            <div class="cc-track">
+              <div
+                v-for="(e, i) in attendedList"
+                :key="e.id"
+                class="cc-item"
+              >
+                <div class="cc-dot" :class="{ accent: i === attendedList.length - 1 }"></div>
+                <div class="cc-date">{{ formatDate(e.date) }}</div>
+                <div class="cc-name">{{ e.title }}</div>
               </div>
             </div>
           </div>
@@ -64,6 +101,7 @@
           </div>
           <div class="card-pct-label">{{ journeyPct }}% of all events · {{ total }}/{{ EVENTS.length }}</div>
 
+          <div class="card-tagline-pill">การเดินทางที่เราเลือกจะจดจำ 🤍</div>
           <div class="card-footer">lenamiu-fan-journey.vercel.app</div>
         </div>
 
@@ -253,159 +291,245 @@ function shareCard() {
 </script>
 
 <style scoped>
-/* ── Share section ── */
-.share-section { margin-bottom: 28px; }
+/* ============================================================
+   JOURNEY CARD — self-contained "printed card" palette
+   Always renders the same regardless of app dark/light theme.
+   Background #FAF7F5 · Primary #91B5C8 · Accent #D9A6AD (rose,
+   used only for Heart / Memory / Achievement / Highlight spots)
+   ============================================================ */
+.share-section {
+  margin-bottom: 28px;
+  --cp: #91B5C8;              /* primary — dusty blue */
+  --ca: #D9A6AD;              /* accent  — dusty rose (sparing use) */
+  --cbg: #FAF7F5;             /* card background — cream */
+  --ccard: #FFFFFF;
+  --ctext: #30343B;
+  --cline: rgba(145, 181, 200, 0.25);
+  --cmist: rgba(48, 52, 59, 0.55);
+}
 
 .journey-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #0F1E35 0%, #1A2D4A 60%, #1E2A3A 100%);
-  border-radius: 20px;
-  padding: 28px 24px 22px;
-  border: 1px solid rgba(91,155,213,0.25);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  background: linear-gradient(180deg, var(--ccard) 0%, var(--cbg) 100%);
+  color: var(--ctext);
+  border-radius: 22px;
+  padding: 26px 22px 22px;
+  border: 1px solid var(--cline);
+  box-shadow: 0 14px 36px rgba(48, 52, 59, 0.1);
   margin-bottom: 12px;
 }
 
-/* light mode card stays dark intentionally — it's a "printed" card */
-[data-theme="light"] .journey-card {
-  background: linear-gradient(135deg, #0F1E35 0%, #162840 60%, #1A2535 100%);
+/* header */
+.card-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
 }
-
-.card-bg-circle {
-  position: absolute;
-  border-radius: 50%;
-  opacity: .12;
-  pointer-events: none;
-}
-.card-bg-1 {
-  width: 220px; height: 220px;
-  background: radial-gradient(circle, #5B9BD5, transparent);
-  top: -60px; right: -60px;
-}
-.card-bg-2 {
-  width: 160px; height: 160px;
-  background: radial-gradient(circle, #C4956A, transparent);
-  bottom: -40px; left: -40px;
-}
+.card-heading { flex: 1; min-width: 0; }
 
 .card-eyebrow {
   font-family: 'Space Mono', monospace;
   font-size: 10px;
-  letter-spacing: .22em;
-  color: #A8D8EA;
+  letter-spacing: .2em;
+  color: var(--cp);
   margin-bottom: 4px;
 }
 .card-title {
   font-family: 'Fraunces', serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  background: linear-gradient(90deg, #A8D8EA, #E8C9A0);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 20px;
+  color: var(--ctext);
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+.card-tagline {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--cmist);
 }
 
-/* stats row */
+.card-hero {
+  flex-shrink: 0;
+  width: 92px;
+  aspect-ratio: 1/1;
+  border-radius: 16px;
+  border: 1.5px dashed var(--cline);
+  background: rgba(145, 181, 200, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 6px;
+}
+.card-hero-icon { font-size: 24px; }
+.card-hero-hint {
+  font-size: 8px;
+  line-height: 1.3;
+  color: var(--cmist);
+}
+
+/* stats */
 .card-stats-row {
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(255,255,255,0.06);
+  background: rgba(145, 181, 200, 0.08);
   border-radius: 14px;
   padding: 14px 0;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
-.card-stat {
-  flex: 1;
-  text-align: center;
-}
+.card-stat { flex: 1; text-align: center; }
 .card-stat-num {
   font-family: 'Fraunces', serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: #EEF4FB;
+  color: var(--cp);
   line-height: 1;
 }
+.card-stat-num.accent { color: var(--ca); }
 .card-stat-lbl {
   font-size: 10px;
-  color: #7A9BB5;
+  color: var(--cmist);
   margin-top: 4px;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
 }
-.card-stat-divider {
-  width: 1px;
-  height: 36px;
-  background: rgba(168,216,234,0.15);
-}
+.card-stat-divider { width: 1px; height: 32px; background: var(--cline); }
 
 /* milestones */
 .card-milestones {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 18px;
 }
 .card-milestone {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255,255,255,0.05);
+  background: var(--ccard);
+  border-radius: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--cline);
+}
+.card-milestone.highlight { border-color: rgba(217, 166, 173, 0.4); }
+
+.ms-thumb {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
   border-radius: 10px;
-  padding: 8px 12px;
-  border: 1px solid rgba(168,216,234,0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  background: rgba(145, 181, 200, 0.12);
+  overflow: hidden;
 }
-.ms-text {
-  flex: 1;
-  min-width: 0; /* ellipsis ทำงานจริง แทนที่จะดันการ์ดให้ล้นจอมือถือ */
-}
-.ms-emoji { font-size: 18px; flex-shrink: 0; }
-.ms-label {
-  font-size: 10px;
-  color: #7A9BB5;
-  letter-spacing: .06em;
+.ms-thumb.accent { background: rgba(217, 166, 173, 0.15); }
+.ms-thumb.has-img { background: none; }
+.ms-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.ms-text { flex: 1; min-width: 0; }
+.ms-tag {
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--cp);
 }
+.ms-tag.accent { color: var(--ca); }
 .ms-value {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: #EEF4FB;
+  color: var(--ctext);
   margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ms-date {
+  font-size: 10px;
+  color: var(--cmist);
+  margin-top: 1px;
+}
+
+/* collected moments */
+.card-collected { margin-bottom: 16px; }
+.cc-title {
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--cp);
+  margin-bottom: 10px;
+}
+.cc-track {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 6px;
+}
+.cc-item { text-align: center; }
+.cc-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--cp);
+  margin: 0 auto 5px;
+}
+.cc-dot.accent { background: var(--ca); }
+.cc-date {
+  font-family: 'Space Mono', monospace;
+  font-size: 8.5px;
+  color: var(--cmist);
+}
+.cc-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ctext);
+  margin-top: 2px;
+  line-height: 1.25;
+}
 
 /* progress bar */
 .card-pct-bar {
   height: 4px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(145, 181, 200, 0.15);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 6px;
 }
 .card-pct-fill {
   height: 100%;
-  background: linear-gradient(90deg, #5B9BD5, #C4956A);
+  background: var(--cp);
   border-radius: 4px;
   transition: width .6s ease;
 }
 .card-pct-label {
   font-family: 'Space Mono', monospace;
   font-size: 10px;
-  color: #7A9BB5;
+  color: var(--cmist);
   text-align: right;
   margin-bottom: 16px;
+}
+
+.card-tagline-pill {
+  text-align: center;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ctext);
+  background: rgba(145, 181, 200, 0.1);
+  border-radius: 20px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
 }
 
 .card-footer {
   font-family: 'Space Mono', monospace;
   font-size: 9px;
   letter-spacing: .14em;
-  color: rgba(168,216,234,0.4);
+  color: var(--cmist);
   text-align: center;
-  border-top: 1px dashed rgba(168,216,234,0.1);
+  border-top: 1px dashed var(--cline);
   padding-top: 12px;
 }
 
