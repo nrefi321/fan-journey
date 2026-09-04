@@ -72,6 +72,15 @@
         </button>
       </div>
 
+      <div class="btn-row">
+        <button class="btn btn-primary share-btn" @click="shareCard">
+          🐦 แชร์ไป X
+        </button>
+        <button class="btn btn-ghost share-btn" @click="saveCardImage">
+          💾 บันทึกรูปการ์ด
+        </button>
+      </div>
+
       <!-- ===== TIMELINE ===== -->
       <div v-for="y in years" :key="y" class="year-block">
         <div class="year-head">{{ y }}</div>
@@ -104,7 +113,8 @@ import { useFanJourney } from '../composables/useFanJourney'
 import { yearOf, formatDate } from '../utils/format'
 
 const { state, EVENTS, EVENTS_BY_ID, ACHIEVEMENTS, total } = useFanJourney()
-
+const cardRef = ref(null)
+  
 // ─── Achievement replay ───────────────────────────────────────
 function unlockedIds(attendances) {
   return new Set(ACHIEVEMENTS.filter((a) => a.check(attendances)).map((a) => a.id))
@@ -193,7 +203,38 @@ const favoriteType = computed(() => {
   const meta = TYPE_META[top[0]] || { label: top[0], emoji: '✨' }
   return { ...meta, count: top[1] }
 })
+  
+async function captureCard() {
+  const html2canvas = (await import('html2canvas')).default
+  return html2canvas(cardRef.value, {
+    backgroundColor: null,
+    scale: 2, // ให้รูปคมชัดขึ้นตอนโหลดลงมือถือ
+    useCORS: true,
+  })
+}
 
+// บันทึก/แชร์รูปจริง — ใช้ Web Share API ถ้ามือถือรองรับ ไม่งั้น fallback เป็นดาวน์โหลด
+async function saveCardImage() {
+  const canvas = await captureCard()
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
+
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'x.png', { type: 'image/png' })] })) {
+    const file = new File([blob], 'lenamiu-fan-journey.png', { type: 'image/png' })
+    try {
+      await navigator.share({ files: [file], title: 'My LenaMiu Fan Journey' })
+      return
+    } catch (e) {
+      // ผู้ใช้กดยกเลิก share sheet — ปล่อยผ่านไป fallback ด้านล่าง
+    }
+  }
+
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = 'lenamiu-fan-journey.png'
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+  
 // ─── Share to X ───────────────────────────────────────────────
 function shareCard() {
   const lines = [
