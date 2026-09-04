@@ -2,7 +2,19 @@
   <div class="overlay" @click.self="$emit('close')">
     <div class="modal">
       <button class="modal-close" @click="$emit('close')">✕</button>
-      <div class="modal-cover" :style="coverStyle">{{ event.emoji }}</div>
+
+      <!-- Cover: รูปจริงหรือ gradient+emoji -->
+      <div class="modal-cover" :style="!event.image || imgError ? coverStyle : {}">
+        <img
+          v-if="event.image && !imgError"
+          :src="event.image"
+          :alt="event.title"
+          class="modal-img"
+          @error="imgError = true"
+        />
+        <template v-else>{{ event.emoji }}</template>
+      </div>
+
       <h2>{{ event.title }}</h2>
       <div class="meta-line">📅 {{ formattedDate }}</div>
       <div class="meta-line">📍 {{ event.location }}</div>
@@ -34,7 +46,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'checkin', 'save-memory', 'share'])
 
+const imgError = ref(false)
 const memoryDraft = ref(props.attendance?.memory || '')
+
 const coverStyle = computed(() => ({
   background: `linear-gradient(135deg, ${props.event.g[0]}, ${props.event.g[1]})`,
 }))
@@ -49,3 +63,19 @@ function handleShare() {
   emit('share', props.event.id)
 }
 </script>
+
+<style scoped>
+.modal-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+}
+.modal-cover {
+  position: relative;
+  overflow: hidden;
+}
+</style>
