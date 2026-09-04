@@ -360,6 +360,10 @@ function shareCard() {
   padding: 8px 12px;
   border: 1px solid rgba(168,216,234,0.08);
 }
+.ms-text {
+  flex: 1;
+  min-width: 0; /* ← เพิ่มบรรทัดนี้ ทำให้ ellipsis ทำงานจริงแทนการดันการ์ดให้ล้น */
+}
 .ms-emoji { font-size: 18px; flex-shrink: 0; }
 .ms-label {
   font-size: 10px;
