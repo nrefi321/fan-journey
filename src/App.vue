@@ -28,8 +28,6 @@
 
     <div class="tabs">
       <router-link to="/events" class="tab-btn" active-class="active">Events</router-link>
-      <!-- เพิ่มปุ่ม Schedule ตรงนี้ -->
-      <router-link to="/schedule" class="tab-btn" active-class="active">Schedule</router-link>
       <router-link to="/journey" class="tab-btn" active-class="active">My Journey</router-link>
       <router-link to="/achievements" class="tab-btn" active-class="active">Achievements</router-link>
     </div>
