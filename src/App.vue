@@ -8,20 +8,23 @@
     </transition-group>
 
     <div class="top">
+      <button class="theme-toggle" @click="toggleTheme">
+        {{ isDark ? '☀️' : '🌙' }}
+      </button>
       <div class="eyebrow">FAN JOURNEY</div>
       <h1 class="brand">MY FAN JOURNEY 🤍</h1>
       <div class="stats-row">
         <div class="stat-chip">
-          <div class="num">{{ total }}</div>
+          <div class="num">{{ total }}/{{ EVENTS.length }}</div>
           <div class="lbl">Events</div>
+        </div>
+        <div class="stat-chip">
+          <div class="num">{{ journeyPct }}%</div>
+          <div class="lbl">Journey</div>
         </div>
         <div class="stat-chip">
           <div class="num">{{ unlocked.size }}/{{ ACHIEVEMENTS.length }}</div>
           <div class="lbl">Achievements</div>
-        </div>
-        <div class="stat-chip">
-          <div class="num">{{ yearsCount }}</div>
-          <div class="lbl">Years</div>
         </div>
       </div>
     </div>
@@ -38,14 +41,48 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useFanJourney } from './composables/useFanJourney'
 import { useToast } from './composables/useToast'
-import { yearOf } from './utils/format'
 import TabBar from './components/TabBar.vue'
 
 const { EVENTS, ACHIEVEMENTS, total, unlocked } = useFanJourney()
 const { toasts } = useToast()
 
-const yearsCount = computed(() => new Set(EVENTS.map((e) => yearOf(e.date))).size)
+const journeyPct = computed(() =>
+  EVENTS.length ? Math.round((total.value / EVENTS.length) * 100) : 0
+)
+
+// ---------- theme ----------
+const isDark = ref(true)
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  applyTheme()
+  localStorage.setItem('fj-theme', isDark.value ? 'dark' : 'light')
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem('fj-theme')
+  if (saved === 'light') isDark.value = false
+  applyTheme()
+})
 </script>
+
+<style scoped>
+.theme-toggle {
+  position: absolute;
+  top: 28px;
+  right: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
+</style>
