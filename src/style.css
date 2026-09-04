@@ -3,6 +3,7 @@
    Lena = Butterfly Blue  |  Miu = Teddy Warm Brown
    ============================================================ */
 :root {
+  color-scheme: dark;
   --lena:       #5B9BD5;
   --lena-light: #A8D8EA;
   --miu:        #C4956A;
@@ -21,6 +22,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg:         #F0EBE3;
   --surface:    #FFFFFF;
   --surface-2:  #E8E0D5;
